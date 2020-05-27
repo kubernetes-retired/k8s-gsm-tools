@@ -29,6 +29,9 @@ def k8sCreateSecret(secret_id, file):
 				literal += " --from-literal=" + str(k) +"=" + str(v)
 	os.system("kubectl create secret generic " + secret_id + literal)
 
+def k8sDeleteSecret(secret_id):
+	os.system("kubectl delete secret " + secret_id)
+
 def k8sUpdateSecret(secret_id, file):
 	literal = ""
 	with open(file) as f:

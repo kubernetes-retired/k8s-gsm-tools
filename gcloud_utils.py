@@ -21,6 +21,9 @@ import yaml
 def gcloudCreateSecret(secret_id):
 	os.system("gcloud secrets create " + secret_id +" --replication-policy=automatic")
 
+def gcloudDeleteSecret(secret_id):
+	os.system("gcloud secrets delete " + secret_id)
+
 def gcloudAddSecrVersion(secret_id, file):
 	os.system("gcloud secrets versions add " +  secret_id + " --data-file " + file)
 

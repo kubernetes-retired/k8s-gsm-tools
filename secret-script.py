@@ -16,12 +16,13 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_boolean('k2g', False, 'Secret sync from Kubernetes to Gcloud')
 flags.DEFINE_boolean('g2k', False, 'Secret sync from Kubernetes to Gcloud')
-flags.DEFINE_boolean('create', None, 'Create new secrets')
+flags.DEFINE_boolean('create', None, 'Create new secret with secret_id')
+flags.DEFINE_boolean('delete', None, 'Delete secret with secret_id')
+flags.DEFINE_boolean('get', None, 'Get secret with secret_id')
 flags.DEFINE_string('file', None, 'Create or update from file')
 flags.DEFINE_string('secret_id', None, 'The string id of the secret')
 
 flags.mark_flag_as_required("secret_id")
-flags.mark_flag_as_required("file")
 
 from gcloud_utils import *
 from k8s_utils import *
@@ -35,6 +36,15 @@ def main(argv):
 		gcloudCreateSecret(FLAGS.secret_id)
 		gcloudAddSecrVersion(FLAGS.secret_id, FLAGS.file)
 		k8sCreateSecret(FLAGS.secret_id, FLAGS.file)
+
+	elif FLAGS.get is not None:
+		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
+		k8sAccessSecret(FLAGS.secret_id)
+
+
+	elif FLAGS.delete is not None:
+		gcloudDeleteSecret(FLAGS.secret_id)
+		k8sDeleteSecret(FLAGS.secret_id)
 
 	elif FLAGS.k2g:
 		k8sUpdateSecret(FLAGS.secret_id, FLAGS.file)
