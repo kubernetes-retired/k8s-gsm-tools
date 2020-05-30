@@ -1,15 +1,4 @@
-# Lint as: python3
-"""TODO(shanefu): DO NOT SUBMIT without one-line documentation for utils.
-
-TODO(shanefu): DO NOT SUBMIT without a detailed description of utils.
-"""
-'''
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import google_type_annotations
-from __future__ import print_function
-'''
-
+# k8s secret manager utilities
 from absl import app
 from absl import flags
 
@@ -53,12 +42,9 @@ def k8sAccessSecret(secret_id):
 				if k!='data': continue
 				for k_,s_ in v.items():
 					secret[k_] = base64.b64decode(s_).decode("utf-8")
-	out = 'k8s_res.yml'
+	out = 'k8s_res.yaml'
 	with open(out, 'w') as outfile:
 		yaml.dump(secret, outfile, default_flow_style=False)
 	print("K8s secret:")
 	print(secret)
 	return out
-	# p = subprocess.Popen(["kubectl create secret generic " + secret_id + literal + " --dry-run=client -o yaml | kubectl apply -f -"],
-	# 					 stdout=subprocess.PIPE, shell=True)
-	# p.stdout.read()

@@ -1,15 +1,4 @@
-# Lint as: python3
-"""TODO(shanefu): DO NOT SUBMIT without one-line documentation for utils.
-
-TODO(shanefu): DO NOT SUBMIT without a detailed description of utils.
-"""
-'''
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import google_type_annotations
-from __future__ import print_function
-'''
-
+# gcloud secret manager utilities
 from absl import app
 from absl import flags
 
@@ -34,7 +23,7 @@ def gcloudAccessSecretVersion(secret_id, version_id):
 		data = yaml.load_all(f, Loader=yaml.FullLoader)
 		for d in data:
 			secret = d
-	out = 'gcloud_res.yml'
+	out = 'gcloud_res.yaml'
 	with open(out, 'w') as outfile:
 		yaml.dump(secret, outfile, default_flow_style=False)
 	print("Gcloud secret:")

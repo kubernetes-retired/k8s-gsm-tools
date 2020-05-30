@@ -1,14 +1,3 @@
-# Lint as: python3
-"""TODO(shanefu): DO NOT SUBMIT without one-line documentation for secret-script.
-
-TODO(shanefu): DO NOT SUBMIT without a detailed description of secret-script.
-"""
-'''
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import google_type_annotations
-from __future__ import print_function
-'''
 from absl import app
 from absl import flags
 
@@ -32,31 +21,61 @@ def main(argv):
 	if len(argv) > 1:
 		raise app.UsageError('Too many command-line arguments.')
 
+	# create secrets with id = FLAGS.secret_id
 	if FLAGS.create is not None:
 		gcloudCreateSecret(FLAGS.secret_id)
 		gcloudAddSecrVersion(FLAGS.secret_id, FLAGS.file)
 		k8sCreateSecret(FLAGS.secret_id, FLAGS.file)
 
+	# get secrets with id = FLAGS.secret_id
 	elif FLAGS.get is not None:
 		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
 		k8sAccessSecret(FLAGS.secret_id)
+		print("=============================")
 
 
+	# delte secrets with id = FLAGS.secret_id
 	elif FLAGS.delete is not None:
 		gcloudDeleteSecret(FLAGS.secret_id)
 		k8sDeleteSecret(FLAGS.secret_id)
 
+	# secret update in k8s, then sync to gcloud SM
 	elif FLAGS.k2g:
+		print("Update k8s secret: ")
 		k8sUpdateSecret(FLAGS.secret_id, FLAGS.file)
 		new_secret = k8sAccessSecret(FLAGS.secret_id)
+		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
+		
+		# sync
+		sync = input("Sync? [y/n] ")
+		if sync in ['n','N']:
+			return
+
+		print("Synchronizing...")
 		gcloudAddSecrVersion(FLAGS.secret_id, new_secret)
 		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
+		k8sAccessSecret(FLAGS.secret_id)
+		print("Sync'ed.")
+		print("=============================")
 
+	# secret update in gcloud SM, then sync to k8s
 	elif FLAGS.g2k:
+		print("Update gcloud secret: ")
 		gcloudAddSecrVersion(FLAGS.secret_id, FLAGS.file)
 		new_secret = gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
+		k8sAccessSecret(FLAGS.secret_id)
+		
+		# sync
+		sync = input("Sync? [y/n] ")
+		if sync in ['n','N']:
+			return
+
+		print("Synchronizing...")
 		k8sUpdateSecret(FLAGS.secret_id, new_secret)
 		k8sAccessSecret(FLAGS.secret_id)
+		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
+		print("Sync'ed.")
+		print("=============================")
 		
 
 
