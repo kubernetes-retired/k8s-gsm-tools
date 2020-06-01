@@ -12,15 +12,24 @@ RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s
 	mv ./kubectl /usr/local/bin/kubectl
 
 # install gcloud
-RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list && \
-	apt-get install -y apt-transport-https ca-certificates gnupg && \
-	curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add - && \
-	apt-get update && apt-get install -y google-cloud-sdk
+ENV PATH=/google-cloud-sdk/bin:/workspace:${PATH} \
+    CLOUDSDK_CORE_DISABLE_PROMPTS=1
 
+
+RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.tar.gz && \
+    tar xzf google-cloud-sdk.tar.gz -C / && \
+    rm google-cloud-sdk.tar.gz && \
+    /google-cloud-sdk/install.sh \
+        --disable-installation-options \
+        --bash-completion=false \
+        --path-update=false \
+        --usage-reporting=false && \
+    gcloud info | tee $WORKDIR/gcloud-info.txt
 COPY . .
 
 #set authentication
-COPY entrypoint.sh /
-ENV GOOGLE_APPLICATION_CREDENTIALS "/usr/src/app/gcloud_key.json"
+ENV GOOGLE_APPLICATION_CREDENTIALS $WORKDIR/gcloud_key.json
 
-CMD ["/entrypoint.sh"]
+
+CMD ./$WORKDIR/entrypoint.sh
+
