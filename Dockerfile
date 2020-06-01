@@ -1,6 +1,6 @@
 FROM python:3
 
-WORKDIR /usr/src/app
+WORKDIR /workspace
 
 
 COPY requirements.txt ./
@@ -24,12 +24,12 @@ RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.ta
         --bash-completion=false \
         --path-update=false \
         --usage-reporting=false && \
-    gcloud info | tee $WORKDIR/gcloud-info.txt
+    gcloud info | tee /workspace/gcloud-info.txt
 COPY . .
 
 #set authentication
-ENV GOOGLE_APPLICATION_CREDENTIALS $WORKDIR/gcloud_key.json
+ENV GOOGLE_APPLICATION_CREDENTIALS="/workspace/gcloud_key.json"
 
 
-CMD ./$WORKDIR/entrypoint.sh
+CMD ./entrypoint.sh
 
