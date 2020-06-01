@@ -7,7 +7,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # install kubectl
-RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && \
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && \
 	chmod +x ./kubectl && \
 	mv ./kubectl /usr/local/bin/kubectl
 
@@ -27,4 +27,3 @@ RUN export GOOGLE_APPLICATION_CREDENTIALS="/usr/src/app/gcloud_key.json"
 ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["python", "secret-script.py", "--get", "--secret_id=docker-secret"]
-
