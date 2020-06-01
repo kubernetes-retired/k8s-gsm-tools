@@ -20,10 +20,7 @@ RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.
 COPY . .
 
 #set authentication
-COPY entrypoint.sh /usr/local/bin/
-RUN ln -s /usr/local/bin/entrypoint.sh / # backwards compat
-RUN export GOOGLE_APPLICATION_CREDENTIALS="/usr/src/app/gcloud_key.json"
+COPY entrypoint.sh /
+ENV GOOGLE_APPLICATION_CREDENTIALS "/usr/src/app/gcloud_key.json"
 
-ENTRYPOINT ["/entrypoint.sh"]
-
-CMD ["python", "secret-script.py", "--get", "--secret_id=docker-secret"]
+CMD ["/entrypoint.sh"]
