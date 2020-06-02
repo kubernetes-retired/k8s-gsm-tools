@@ -41,7 +41,7 @@ Run directly with command line:
 Or run in a docker container:
 ```
 # build docker image
-docker build -t python-app .
+docker build -t gcr.io/k8s-jkns-gke-soak/secret-script .
 # run image in container
-docker run --name my-running-app --rm -it  python-app
+docker run --name secret-script-container --rm -it  gcr.io/k8s-jkns-gke-soak/secret-script
 ```
