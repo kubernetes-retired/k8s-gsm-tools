@@ -10,14 +10,12 @@ gcloud auth activate-service-account --key-file "${GOOGLE_APPLICATION_CREDENTIAL
 gcloud container clusters get-credentials "${GCP_CLUSTER}"
 
 
-kubectl get secrets
-
 chmod +x secret-script.py
 
-./secret-script.py --create --secret_id=docker-secret --file=test-secret.yaml
-./secret-script.py --get --secret_id=docker-secret
-./secret-script.py --g2k --secret_id=docker-secret --file=new-secret.yaml
-./secret-script.py --k2g --secret_id=docker-secret --file=test-secret.yaml
-
+./secret-script.py create --secret_id=docker-secret --file=test-secret.yaml
+./secret-script.py get --secret_id=docker-secret
+./secret-script.py update --direction g2k --secret_id=docker-secret --file=new-secret.yaml
+./secret-script.py update --direction k2g --secret_id=docker-secret --file=test-secret.yaml
+./secret-script.py delete --secret_id=docker-secret
 
 

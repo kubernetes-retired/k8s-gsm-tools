@@ -27,13 +27,15 @@ Run directly with command line:
 # run on local terminal
 
 # create secrets with secret_id in both k8s and gcloud sm
-python secret-script.py --create --secret_id=secret_id --file=test-secret.yaml
+./secret-script.py create --secret_id=docker-secret --file=test-secret.yaml
 # get secrets with secret_id in both k8s and gcloud sm
-python secret-script.py --get --secret_id=secret_id
+./secret-script.py get --secret_id=docker-secret
 # update secret with secret_id in gcloud sm, then sync to k8s
-python secret-script.py --g2k --secret_id=secret_id --file=new-secret.yaml
+./secret-script.py update --direction g2k --secret_id=docker-secret --file=new-secret.yaml
 # update secret with secret_id in k8s, then sync to gcloud sm
-python secret-script.py --k2g --secret_id=secret_id --file=test-secret.yaml
+./secret-script.py update --direction k2g --secret_id=docker-secret --file=test-secret.yaml
+# delete secrets with secret_id in both k8s and gcloud sm
+./secret-script.py delete --secret_id=docker-secret
 ```
 
 Or run in a docker container:

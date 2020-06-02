@@ -1,85 +1,82 @@
 #!/usr/bin/env python3
 
-from absl import app
-from absl import flags
-
-FLAGS = flags.FLAGS
-
-flags.DEFINE_boolean('k2g', False, 'Secret sync from Kubernetes to Gcloud')
-flags.DEFINE_boolean('g2k', False, 'Secret sync from Kubernetes to Gcloud')
-flags.DEFINE_boolean('create', None, 'Create new secret with secret_id')
-flags.DEFINE_boolean('delete', None, 'Delete secret with secret_id')
-flags.DEFINE_boolean('get', None, 'Get secret with secret_id')
-flags.DEFINE_string('file', None, 'Create or update from file')
-flags.DEFINE_string('secret_id', None, 'The string id of the secret')
-
-flags.mark_flag_as_required("secret_id")
 
 from gcloud_utils import *
 from k8s_utils import *
+import argparse
+import sys
+
+def parse_args(args):
+	parser = argparse.ArgumentParser()
+	parser.add_argument('action', help='Options: create, get, update, or delete')
+	parser.add_argument('--secret_id', help='The id of the secret')
+	parser.add_argument('--file', help='The yaml file containing the secret')
+	parser.add_argument('--direction', help='Options: k2g or g2k')
+	return parser.parse_args(args)
 
 
-def main(argv):
-	if len(argv) > 1:
-		raise app.UsageError('Too many command-line arguments.')
+def main(args):
+	# create secrets <args.secret_id> with file <args.file>
+	if args.action == 'create':
+		if args.secret_id is None or args.file is None:
+			sys.exit("requires '--secret_id' and '--file' arguments")
+		gcloudCreateSecret(args.secret_id)
+		gcloudAddSecrVersion(args.secret_id, args.file)
+		k8sCreateSecret(args.secret_id, args.file)
 
-	# create secrets with id = FLAGS.secret_id
-	if FLAGS.create is not None:
-		gcloudCreateSecret(FLAGS.secret_id)
-		gcloudAddSecrVersion(FLAGS.secret_id, FLAGS.file)
-		k8sCreateSecret(FLAGS.secret_id, FLAGS.file)
-
-	# get secrets with id = FLAGS.secret_id
-	elif FLAGS.get is not None:
-		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
-		k8sAccessSecret(FLAGS.secret_id)
+	# get secrets <args.secret_id>
+	elif args.action == 'get':
+		if args.secret_id is None:
+			sys.exit("requires '--secret_id' arguments")
+		gcloudAccessSecretVersion(args.secret_id, "latest")
+		k8sAccessSecret(args.secret_id)
 		print("=============================")
 
 
-	# delte secrets with id = FLAGS.secret_id
-	elif FLAGS.delete is not None:
-		gcloudDeleteSecret(FLAGS.secret_id)
-		k8sDeleteSecret(FLAGS.secret_id)
+	# delte secrets <args.secret_id>
+	elif args.action == 'delete':
+		if args.secret_id is None :
+			sys.exit("requires '--secret_id' argument")
+		gcloudDeleteSecret(args.secret_id)
+		k8sDeleteSecret(args.secret_id)
 
-	# secret update in k8s, then sync to gcloud SM
-	elif FLAGS.k2g:
-		print("Update k8s secret: ")
-		k8sUpdateSecret(FLAGS.secret_id, FLAGS.file)
-		new_secret = k8sAccessSecret(FLAGS.secret_id)
-		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
-		
-		# sync
-		sync = input("Sync? [y/n] ")
-		if sync in ['n','N']:
-			return
+	# update secrets <args.secret_id> with file <args.file> in a platform and sync to the other platform
+	# k2g: update kubernetes secret first, then sync to gcloud sm
+	# g2k: update gcloud sm secret first, then sync to kubernetes
+	elif args.action == 'update':
+		if args.secret_id is None or args.file is None:
+			sys.exit("requires '--secret_id' and '--file' arguments")
 
-		print("Synchronizing...")
-		gcloudAddSecrVersion(FLAGS.secret_id, new_secret)
-		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
-		k8sAccessSecret(FLAGS.secret_id)
+		if args.direction == "k2g":
+			print("Update k8s secret: ")
+			k8sUpdateSecret(args.secret_id, args.file)
+			new_secret = k8sAccessSecret(args.secret_id)
+			gcloudAccessSecretVersion(args.secret_id, "latest")
+			
+			# sync
+			print("\n Synchronizing...\n")
+			gcloudAddSecrVersion(args.secret_id, new_secret)
+		elif args.direction == "g2k":
+			print("Update gcloud secret: ")
+			gcloudAddSecrVersion(args.secret_id, args.file)
+			new_secret = gcloudAccessSecretVersion(args.secret_id, "latest")
+			k8sAccessSecret(args.secret_id)
+			
+			# sync
+			print("\n Synchronizing...\n")
+			k8sUpdateSecret(args.secret_id, new_secret)
+		else:
+			sys.exit("missing or invalid '--direction' argument, options: k2g or g2k")
+
+		gcloudAccessSecretVersion(args.secret_id, "latest")
+		k8sAccessSecret(args.secret_id)
 		print("Sync'ed.")
-		print("=============================")
+		print("=============================\n")
 
-	# secret update in gcloud SM, then sync to k8s
-	elif FLAGS.g2k:
-		print("Update gcloud secret: ")
-		gcloudAddSecrVersion(FLAGS.secret_id, FLAGS.file)
-		new_secret = gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
-		k8sAccessSecret(FLAGS.secret_id)
-		
-		# sync
-		sync = input("Sync? [y/n] ")
-		if sync in ['n','N']:
-			return
-
-		print("Synchronizing...")
-		k8sUpdateSecret(FLAGS.secret_id, new_secret)
-		k8sAccessSecret(FLAGS.secret_id)
-		gcloudAccessSecretVersion(FLAGS.secret_id, "latest")
-		print("Sync'ed.")
-		print("=============================")
+	else:
+		sys.exit("missing or invalid 'action' argument, options: create, get, update, or delete")
 		
 
 
 if __name__ == '__main__':
-	app.run(main)
+	main(parse_args(sys.argv[1:]))
