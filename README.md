@@ -14,7 +14,7 @@ Proof-of-concept python script for sychronization between kubernetes secret and 
 	- Permission to manage secrets:
 
 		- Create a custom iam role `iam-role-id` with container.secrets.* permissions and add the role to service account `service-account-name`:
-			- service-sevret-role.yaml
+			- service-secret-role.yaml
 
 				    title: Service Account Secret Role
 				    description: secret managing role for service accounts
