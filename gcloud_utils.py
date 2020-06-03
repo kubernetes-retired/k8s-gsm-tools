@@ -1,8 +1,4 @@
 # gcloud secret manager utilities
-from absl import app
-from absl import flags
-
-FLAGS = flags.FLAGS
 
 import os
 import yaml

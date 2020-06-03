@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 
-
 from gcloud_utils import *
 from k8s_utils import *
 import argparse
 import sys
 
-def parse_args(args):
+def parse_args():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('action', help='Options: create, get, update, or delete')
 	parser.add_argument('--secret_id', help='The id of the secret')
 	parser.add_argument('--file', help='The yaml file containing the secret')
 	parser.add_argument('--direction', help='Options: k2g or g2k')
-	return parser.parse_args(args)
+	return parser.parse_args()
 
 
 def main(args):
@@ -54,7 +53,7 @@ def main(args):
 			gcloudAccessSecretVersion(args.secret_id, "latest")
 			
 			# sync
-			print("\n Synchronizing...\n")
+			print("\n Synchronizing the secret [{}] from k8s to gcloud SM...\n".format(args.secret_id))
 			gcloudAddSecrVersion(args.secret_id, new_secret)
 		elif args.direction == "g2k":
 			print("Update gcloud secret: ")
@@ -63,7 +62,7 @@ def main(args):
 			k8sAccessSecret(args.secret_id)
 			
 			# sync
-			print("\n Synchronizing...\n")
+			print("\n Synchronizing the secret [{}] from gcloud sM to k8s...\n".format(args.secret_id))
 			k8sUpdateSecret(args.secret_id, new_secret)
 		else:
 			sys.exit("missing or invalid '--direction' argument, options: k2g or g2k")
@@ -79,4 +78,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-	main(parse_args(sys.argv[1:]))
+	main(parse_args())
