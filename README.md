@@ -85,7 +85,8 @@ Or run in a docker container:
 # build docker image
 docker build -t gcr.io/k8s-jkns-gke-soak/secret-script .
 # run image in container
-docker run --mount type=bind,source=<absolute/path/to/your/service-account-key>,target=/gcloud_key.json \
+# should first create a folder containing your service-account-key
+docker run -v <absolute/path/to/your/service-account-key/folder>:/tmp/service-account:ro \
 --name secret-script-container \
 --rm -it \
 gcr.io/k8s-jkns-gke-soak/secret-script

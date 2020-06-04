@@ -28,7 +28,7 @@ RUN wget -q https://dl.google.com/dl/cloudsdk/channels/rapid/google-cloud-sdk.ta
 COPY . .
 
 #set authentication
-ENV GOOGLE_APPLICATION_CREDENTIALS="/gcloud_key.json"
+ENV GOOGLE_APPLICATION_CREDENTIALS="/tmp/service-account/gcloud_key.json"
 
 
 CMD ./entrypoint.sh
