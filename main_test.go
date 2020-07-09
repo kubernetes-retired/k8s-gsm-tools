@@ -82,6 +82,8 @@ func TestSync(t *testing.T) {
 		t.Fatalf("Fail to parse fixture: %s", err)
 	}
 
+	defer fixture.TeardownNamespaces(testClient)
+
 	var testcases = []struct {
 		name      string
 		spec      config.SecretSyncSpec
@@ -361,242 +363,10 @@ func TestSync(t *testing.T) {
 				}
 			}
 
-			err = fixture.Teardown(testClient)
+			err = fixture.TeardownSecrets(testClient)
 			if err != nil {
 				t.Error(err)
 			}
-		})
-	}
-}
-
-func TestValidate(t *testing.T) {
-	var testcases = []struct {
-		name      string
-		conf      config.SecretSyncConfig
-		expectErr bool
-	}{
-		{
-			name: "Correct config.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-2",
-							Secret:  "secret-2",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-b",
-							Secret:    "secret-b",
-							Key:       "key-b",
-						},
-					},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name: "Correct config. <Different source secrets> for <two different secret keys< in the <same Kubernetes secret>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-2",
-							Secret:  "secret-2",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-b",
-						},
-					},
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name: "Missing <project> field for <source>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Secret: "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "Missing <secret> field for <source>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "Missing <namespace> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Secret: "secret-a",
-							Key:    "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "Missing <secret> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Key:       "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "Missing <key> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "<Multiple sources> for a <single Kunernetes secret key>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-2",
-							Secret:  "secret-2",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name: "<Multiple declaration> for the <same secret sync pair>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-					{
-						Source: config.SecretManagerSpec{
-							Project: "proj-1",
-							Secret:  "secret-1",
-						},
-						Destination: config.KubernetesSpec{
-							Namespace: "ns-a",
-							Secret:    "secret-a",
-							Key:       "key-a",
-						},
-					},
-				},
-			},
-			expectErr: true,
-		},
-	}
-	for _, tc := range testcases {
-		testname := tc.name
-		t.Run(testname, func(t *testing.T) {
-
-			err := tc.conf.Validate()
-			if tc.expectErr && err == nil {
-				t.Errorf("Expected error but got nil.")
-			} else if !tc.expectErr && err != nil {
-				t.Errorf("Unexpected error: %s", err)
-			}
-
 		})
 	}
 }
@@ -632,13 +402,12 @@ func TestSyncAll(t *testing.T) {
 		t.Fatalf("Fail to parse fixture: %s", err)
 	}
 
+	defer fixture.TeardownNamespaces(testClient)
+
 	var testcases = []struct {
-		name           string
-		conf           config.SecretSyncConfig
-		resBefore      tests.Fixture
-		fixSource      tests.Fixture
-		fixDestination tests.Fixture
-		resAfter       tests.Fixture
+		name string
+		conf config.SecretSyncConfig
+		want tests.Fixture
 	}{
 		{
 			name: "Sync all pairs normally.",
@@ -669,25 +438,7 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			resBefore: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "gsm-token-v1",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": map[string]string{
-						"key-b": "gsm-password-v1",
-					},
-				},
-				"ns-c": nil,
-			},
-
-			fixSource: nil,
-
-			fixDestination: nil,
-
-			resAfter: tests.Fixture{
+			want: tests.Fixture{
 				"ns-a": map[string]interface{}{
 					"secret-a": map[string]string{
 						"key-a": "gsm-token-v1",
@@ -702,7 +453,7 @@ func TestSyncAll(t *testing.T) {
 			},
 		},
 		{
-			name: "Sync other pairs normally, and recover from <non-existing gsm secret> whenever availalbe.",
+			name: "Sync other pairs normally, and skip <non-existing gsm secret>.",
 			conf: config.SecretSyncConfig{
 				Specs: []config.SecretSyncSpec{
 					{
@@ -730,7 +481,7 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			resBefore: tests.Fixture{
+			want: tests.Fixture{
 				"ns-a": map[string]interface{}{
 					"secret-a": map[string]string{
 						"key-a": "old-token",
@@ -743,31 +494,9 @@ func TestSyncAll(t *testing.T) {
 				},
 				"ns-c": nil,
 			},
-
-			fixSource: tests.Fixture{
-				testOpts.gsmProject: map[string]string{
-					"missed": "new-secret",
-				},
-			},
-
-			fixDestination: nil,
-
-			resAfter: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "new-secret",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": map[string]string{
-						"key-b": "gsm-password-v1",
-					},
-				},
-				"ns-c": nil,
-			},
 		},
 		{
-			name: "Sync other pairs normally, and recover from <non-existing k8s namespace> whenever availalbe.",
+			name: "Sync other pairs normally, and skip <non-existing k8s namespace>.",
 			conf: config.SecretSyncConfig{
 				Specs: []config.SecretSyncSpec{
 					{
@@ -795,7 +524,7 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			resBefore: tests.Fixture{
+			want: tests.Fixture{
 				"ns-a": map[string]interface{}{
 					"secret-a": map[string]string{
 						"key-a": "gsm-token-v1",
@@ -805,29 +534,6 @@ func TestSyncAll(t *testing.T) {
 					"secret-b": nil,
 				},
 				"ns-c": nil,
-			},
-
-			fixSource: nil,
-
-			fixDestination: tests.Fixture{
-				"missed": nil,
-			},
-
-			resAfter: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "gsm-token-v1",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
-				"missed": map[string]interface{}{
-					"secret-d": map[string]string{
-						"key-d": "gsm-password-v1",
-					},
-				},
 			},
 		},
 	}
@@ -848,14 +554,8 @@ func TestSyncAll(t *testing.T) {
 
 			controller.SyncAll()
 
-			// validate result before recovery
-			for namespace, nsItem := range tc.resBefore {
-				// check if the namespace exists
-				err := controller.Client.ValidateKubernetesNamespace(namespace)
-				if err != nil {
-					t.Error(err)
-				}
-
+			// validate result
+			for namespace, nsItem := range tc.want {
 				if nsItem == nil {
 					continue
 				}
@@ -881,63 +581,7 @@ func TestSyncAll(t *testing.T) {
 				}
 			}
 
-			for project, projItem := range tc.fixSource {
-				for id, data := range projItem.(map[string]string) {
-					err = controller.Client.UpsertSecretManagerSecret(project, id, []byte(data))
-					if err != nil {
-						t.Error(err)
-					}
-
-					// record the created secret in fixture for future teardown
-					fixture["secretManager"].(map[string]interface{})[project].(map[string]interface{})[id] = data
-				}
-			}
-			for namespace, _ := range tc.fixDestination {
-				err = controller.Client.CreateKubernetesNamespace(namespace)
-				if err != nil {
-					t.Error(err)
-				}
-
-				// record the created namespace in fixture for future teardown
-				fixture["kubernetes"].(map[string]interface{})[namespace] = nil
-			}
-
-			controller.SyncAll()
-
-			// validate result after recovery
-			for namespace, nsItem := range tc.resAfter {
-				// check if the namespace exists
-				err := controller.Client.ValidateKubernetesNamespace(namespace)
-				if err != nil {
-					t.Error(err)
-				}
-
-				if nsItem == nil {
-					continue
-				}
-				for secret, secretItem := range nsItem.(map[string]interface{}) {
-					err = controller.Client.ValidateKubernetesSecret(namespace, secret)
-					if err != nil {
-						t.Error(err)
-					}
-
-					if secretItem == nil {
-						continue
-					}
-					for key, data := range secretItem.(map[string]string) {
-						value, err := controller.Client.GetKubernetesSecretValue(namespace, secret, key)
-						if err != nil {
-							t.Error(err)
-						}
-						if !bytes.Equal(value, []byte(data)) {
-							t.Errorf("Fail to validate namespaces/%s/secrets/%s[%s]. Expected %s but got %s.", namespace, secret, key, data, value)
-						}
-
-					}
-				}
-			}
-
-			err = fixture.Teardown(testClient)
+			err = fixture.TeardownSecrets(testClient)
 			if err != nil {
 				t.Error(err)
 			}

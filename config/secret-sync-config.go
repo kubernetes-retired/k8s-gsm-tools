@@ -1,6 +1,6 @@
 package config
 
-// configuration and sync-pair defination
+// Package config defines configuration and sync-pair structs
 
 import (
 	"fmt"

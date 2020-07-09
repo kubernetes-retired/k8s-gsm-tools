@@ -167,9 +167,9 @@ func (f Fixture) Setup(cl ClientInterface) error {
 	return nil
 }
 
-// Teardown tears down the testing environment set by Setup.
+// TeardownSecrets deletes all Secret Manager secrets and Kubernetes secrets created by Setup().
 // Returns nil if successful, error otherwise
-func (f Fixture) Teardown(cl ClientInterface) error {
+func (f Fixture) TeardownSecrets(cl ClientInterface) error {
 	for project, projItem := range f["secretManager"].(map[string]interface{}) {
 		for secret, _ := range projItem.(map[string]interface{}) {
 			err := cl.DeleteSecretManagerSecret(project, secret)
@@ -184,7 +184,15 @@ func (f Fixture) Teardown(cl ClientInterface) error {
 		if err != nil {
 			return err
 		}
-		err = cl.CleanupKubernetesNamespace(namespace)
+	}
+	return nil
+}
+
+// TeardownNamespaces deletes all Kubernetes namespaces created by Setup().
+// Returns nil if successful, error otherwise
+func (f Fixture) TeardownNamespaces(cl ClientInterface) error {
+	for namespace, _ := range f["kubernetes"].(map[string]interface{}) {
+		err := cl.CleanupKubernetesNamespace(namespace)
 		if err != nil {
 			return err
 		}
