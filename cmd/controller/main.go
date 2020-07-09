@@ -1,23 +1,31 @@
+/*
+Copyright 2020 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
-	"b01901143.git/secret-sync-controller/client"
-	"b01901143.git/secret-sync-controller/config"
-	"b01901143.git/secret-sync-controller/controller"
 	"context"
 	"errors"
 	"flag"
-	"fmt"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
+	"github.com/b01901143/secret-sync-controller/pkg/client"
+	"github.com/b01901143/secret-sync-controller/pkg/config"
+	"github.com/b01901143/secret-sync-controller/pkg/controller"
 	"k8s.io/klog"
-	"os"
 	"time"
 )
 
 type options struct {
 	configPath   string
-	testSetup    string
 	runOnce      bool
 	resyncPeriod int64
 }
@@ -32,7 +40,6 @@ func (o *options) Validate() error {
 func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
-	flag.StringVar(&o.testSetup, "test-setup", "", "Path to test-setup.yaml.")
 	flag.BoolVar(&o.runOnce, "run-once", false, "Sync once instead of continuous loop.")
 	flag.Int64Var(&o.resyncPeriod, "period", 1000, "Resync period in milliseconds.")
 	flag.Parse()
@@ -41,6 +48,11 @@ func gatherOptions() options {
 
 func main() {
 	o := gatherOptions()
+
+	err := o.Validate()
+	if err != nil {
+		klog.Errorf("Invalid options: %s", err)
+	}
 
 	// prepare clients
 	k8sClientset, err := client.NewK8sClientset()
@@ -57,7 +69,8 @@ func main() {
 	}
 
 	// prepare config
-	secretSyncConfig, err := LoadConfig(o.configPath)
+	secretSyncConfig := &config.SecretSyncConfig{}
+	err = secretSyncConfig.LoadFrom(o.configPath)
 	if err != nil {
 		klog.Errorf("Fail to load config: %s", err)
 	}
@@ -77,29 +90,4 @@ func main() {
 	var stopChan <-chan struct{}
 	controller.Start(stopChan)
 
-}
-
-// LoadConfig loads from a yaml file and returns the structure
-func LoadConfig(conf string) (*config.SecretSyncConfig, error) {
-	stat, err := os.Stat(conf)
-	if err != nil {
-		return nil, err
-	}
-
-	if stat.IsDir() {
-		return nil, fmt.Errorf("config cannot be a dir - %s", conf)
-	}
-
-	yamlFile, err := ioutil.ReadFile(conf)
-	if err != nil {
-		return nil, fmt.Errorf("Error reading %s: %s\n", conf, err)
-	}
-
-	syncConfig := config.SecretSyncConfig{}
-	err = yaml.Unmarshal(yamlFile, &syncConfig)
-	if err != nil {
-		return nil, fmt.Errorf("Error unmarshalling %s: %s\n", conf, err)
-	}
-
-	return &syncConfig, nil
 }

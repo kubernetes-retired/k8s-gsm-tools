@@ -1,10 +1,22 @@
+/*
+Copyright 2020 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package tests
 
 // package client implements testing clients, mocked clients, and fixtures utilities.
 // Should be used with caution. Only for testing purpose.
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -16,7 +28,7 @@ import (
 
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 
-	"b01901143.git/secret-sync-controller/client"
+	"github.com/b01901143/secret-sync-controller/pkg/client"
 )
 
 type ClientInterface interface {
@@ -111,8 +123,10 @@ func (cl *E2eTestClient) CleanupKubernetesSecrets(namespace string) error {
 type Fixture map[string]interface{}
 
 func NewFixture(config []byte, project string) (f Fixture, err error) {
-	config = bytes.ReplaceAll(config, []byte("testOpts.gsmProject"), []byte(project))
 	err = json.Unmarshal(config, &f)
+	f["secretManager"].(map[string]interface{})[project] = f["secretManager"].(map[string]interface{})["testOpts.gsmProject"]
+	delete(f["secretManager"].(map[string]interface{}), "testOpts.gsmProject")
+
 	return f, err
 }
 

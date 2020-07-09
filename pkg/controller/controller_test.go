@@ -1,14 +1,26 @@
-package main
+/*
+Copyright 2020 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package controller
 
 import (
-	"b01901143.git/secret-sync-controller/client"
-	"b01901143.git/secret-sync-controller/config"
-	"b01901143.git/secret-sync-controller/controller"
-	"b01901143.git/secret-sync-controller/tests"
 	"bytes"
 	"context"
 	"flag"
 	"fmt"
+	"github.com/b01901143/secret-sync-controller/pkg/client"
+	"github.com/b01901143/secret-sync-controller/pkg/config"
+	"github.com/b01901143/secret-sync-controller/tests"
 	"os"
 	"testing"
 )
@@ -313,7 +325,7 @@ func TestSync(t *testing.T) {
 		testname := tc.name
 		t.Run(testname, func(t *testing.T) {
 
-			controller := &controller.SecretSyncController{
+			controller := &SecretSyncController{
 				Client:  testClient,
 				RunOnce: true,
 			}
@@ -331,7 +343,7 @@ func TestSync(t *testing.T) {
 			}
 
 			if tc.expectErr && err == nil {
-				t.Errorf("Expected error but got nil.")
+				t.Errorf("Failed to receive expected error.")
 			} else if !tc.expectErr && err != nil {
 				t.Errorf("Unexpected error: %s", err)
 			}
@@ -541,7 +553,7 @@ func TestSyncAll(t *testing.T) {
 		testname := tc.name
 		t.Run(testname, func(t *testing.T) {
 
-			controller := &controller.SecretSyncController{
+			controller := &SecretSyncController{
 				Client:  testClient,
 				Config:  &tc.conf,
 				RunOnce: true,

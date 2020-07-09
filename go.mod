@@ -1,4 +1,4 @@
-module b01901143.git/secret-sync-controller
+module github.com/b01901143/secret-sync-controller
 
 go 1.13
 

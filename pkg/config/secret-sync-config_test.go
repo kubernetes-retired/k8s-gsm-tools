@@ -1,37 +1,49 @@
+/*
+Copyright 2020 The Kubernetes Authors.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package config
 
 import (
-	"b01901143.git/secret-sync-controller/config"
 	"testing"
 )
 
 func TestValidate(t *testing.T) {
 	var testcases = []struct {
 		name      string
-		conf      config.SecretSyncConfig
+		conf      SecretSyncConfig
 		expectErr bool
 	}{
 		{
 			name: "Correct config.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
 						},
 					},
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-2",
 							Secret:  "secret-2",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-b",
 							Secret:    "secret-b",
 							Key:       "key-b",
@@ -43,25 +55,25 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Correct config. <Different source secrets> for <two different secret keys< in the <same Kubernetes secret>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
 						},
 					},
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-2",
 							Secret:  "secret-2",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-b",
@@ -73,13 +85,13 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Missing <project> field for <source>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Secret: "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
@@ -91,13 +103,13 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Missing <secret> field for <source>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
@@ -109,14 +121,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Missing <namespace> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Secret: "secret-a",
 							Key:    "key-a",
 						},
@@ -127,14 +139,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Missing <secret> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Key:       "key-a",
 						},
@@ -145,14 +157,14 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "Missing <key> field for <destination>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 						},
@@ -163,25 +175,25 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "<Multiple sources> for a <single Kunernetes secret key>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
 						},
 					},
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-2",
 							Secret:  "secret-2",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
@@ -193,25 +205,25 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name: "<Multiple declaration> for the <same secret sync pair>.",
-			conf: config.SecretSyncConfig{
-				Specs: []config.SecretSyncSpec{
+			conf: SecretSyncConfig{
+				Specs: []SecretSyncSpec{
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
 						},
 					},
 					{
-						Source: config.SecretManagerSpec{
+						Source: SecretManagerSpec{
 							Project: "proj-1",
 							Secret:  "secret-1",
 						},
-						Destination: config.KubernetesSpec{
+						Destination: KubernetesSpec{
 							Namespace: "ns-a",
 							Secret:    "secret-a",
 							Key:       "key-a",
