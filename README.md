@@ -61,6 +61,11 @@ gcloud container node-pools update <nodepool-name> \
   --workload-metadata=GKE_METADATA
 ```
 
+- Create Kubernetes service account
+```
+kubectl apply -f service-account/serviceaccount.yaml
+```
+
 - Set up Workload Identity binding
 ```
 gcloud iam service-accounts add-iam-policy-binding \
@@ -72,15 +77,14 @@ gcloud iam service-accounts add-iam-policy-binding \
 - Annotate the KSA to complete the binding between the KSA and GSA
 ```
 kubectl annotate serviceaccount \
-  --namespace k8s_namespace \
-   ksa_name \
+  --namespace <k8s_namespace> \
+   <ksa_name> \
    iam.gke.io/gcp-service-account=<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com
 ```
 
 - Set up Kubernetes service account role and binding
 (action might require container.roles.create and container.roles.bind permissions if using gke cluster)
 ```
-kubectl apply -f service-account/serviceaccount.yaml
 kubectl apply -f service-account/role.yaml
 ```
 
@@ -106,8 +110,8 @@ kubectl apply -f service-account/role.yaml
 - In-Cluster
 	- build and push docker image
 
-			docker build -t gcr.io/k8s-jkns-gke-soak/secret-sync-controller .
-			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller
+			docker build -t gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy .
+			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy
 
 	- run controller in continuous mode as job
 			

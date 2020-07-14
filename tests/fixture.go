@@ -17,11 +17,9 @@ package tests
 // Should be used with caution. Only for testing purpose.
 
 import (
-	"bytes"
 	"context"
 	"gopkg.in/yaml.v2"
 	"strings"
-	"text/template"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -129,12 +127,8 @@ type Fixture struct {
 	SecretManager map[string]map[string]string
 }
 
-func NewFixture(config string, project string) (f Fixture, err error) {
-	t := template.Must(template.New("config").Parse(config))
-	b := new(bytes.Buffer)
-	t.Execute(b, project)
-
-	err = yaml.Unmarshal(b.Bytes(), &f)
+func NewFixture(config []byte) (f Fixture, err error) {
+	err = yaml.Unmarshal(config, &f)
 
 	return f, err
 }
@@ -151,7 +145,7 @@ func (f Fixture) Setup(cl ClientInterface) error {
 		}
 	}
 
-	for namespace, _ := range f.Kubernetes {
+	for namespace := range f.Kubernetes {
 		// check if the namespace exists
 		err := cl.ValidateKubernetesNamespace(namespace)
 		if err != nil {
@@ -202,11 +196,11 @@ func (f Fixture) Reset(cl ClientInterface) error {
 	return nil
 }
 
-// Teardown deletes all Secret Manager secrets and Kubernetes secrets&namespaces created by Setup().
+// Teardown deletes all Secret Manager secrets and Kubernetes secrets and namespaces created by Setup().
 // Returns nil if successful, error otherwise
 func (f Fixture) Teardown(cl ClientInterface) error {
 	for project, projItem := range f.SecretManager {
-		for secret, _ := range projItem {
+		for secret := range projItem {
 			err := cl.DeleteSecretManagerSecret(project, secret)
 			if err != nil {
 				return err
@@ -214,7 +208,7 @@ func (f Fixture) Teardown(cl ClientInterface) error {
 		}
 	}
 
-	for namespace, _ := range f.Kubernetes {
+	for namespace := range f.Kubernetes {
 		err := cl.CleanupKubernetesSecrets(namespace)
 		if err != nil {
 			return err

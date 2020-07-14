@@ -40,12 +40,16 @@ import (
 
 // NewK8sClientset creates a new K8s clientset
 // uses in-cluster configuration if possible, but falls back to out-of-cluster configuration otherwise.
-func NewK8sClientset() (*kubernetes.Interface, error) {
+// It loads from kubeconfig, and looks for a config file under $HOME if kubeconfig is not specified.
+func NewK8sClientset(kubeconfig string) (*kubernetes.Interface, error) {
 	// tries to create the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		// fall back to using out-of-cluster config
-		kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		if kubeconfig == "" {
+			// find the kubeconfig file under $HOME if no kubeconfig flag passed
+			kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		}
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			return nil, err

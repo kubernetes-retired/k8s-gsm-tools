@@ -6,16 +6,8 @@ spec:
   template:
     spec:
       serviceAccountName: secret-sync-controller
-      volumes:
-      - name: key-volume
-        secret:
-          secretName: service-account
       containers:
       - name: sync-container
         image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
-        command: ["sh", "-c", "go run cmd/controller/main.go --config-path config.yaml --period 1000"]
-        volumeMounts:
-        - name: key-volume
-          readOnly: true
-          mountPath: /tmp/service-account
+        command: ["sh", "-c", "go build -o controller-cmd cmd/controller/main.go && ./controller-cmd --config-path config.yaml --period 1000"]
       restartPolicy: Never
