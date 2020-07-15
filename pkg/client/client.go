@@ -30,18 +30,38 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	prowkube "k8s.io/test-infra/prow/kube"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
-func NewK8sClientset() (*kubernetes.Interface, error) {
-	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
-	clientset, err := prowkube.GetKubernetesClient("", kubeconfig)
+// NewK8sClientset creates a new K8s clientset
+// uses in-cluster configuration if possible, but falls back to out-of-cluster configuration otherwise.
+// It loads from kubeconfig, and looks for a config file under $HOME if kubeconfig is not specified.
+func NewK8sClientset(kubeconfig string) (*kubernetes.Interface, error) {
+	// tries to create the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		// fall back to using out-of-cluster config
+		if kubeconfig == "" {
+			// find the kubeconfig file under $HOME if no kubeconfig flag passed
+			kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		}
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var clientset kubernetes.Interface
+	clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
+
 	return &clientset, nil
 }
 

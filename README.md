@@ -11,19 +11,19 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 
 - [Create service account for app](https://cloud.google.com/docs/authentication/production#command-line)
 
-- Grant required permissions to the service account `service-account-name`.
+- Grant required permissions to the service account `gsa-name`.
 
 	- Permission to get clusters:
 
-		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<service-account-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/container.clusterViewer"
+		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/container.clusterViewer"
 	
 	- Permission to manage secrets:
 
-		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<service-account-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/secretmanager.admin"
+		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/secretmanager.admin"
 
 	- Permission to manage secrets within containers:
 
-		- Create a custom iam role `iam-role-id` with container.secrets.* permissions and add the role to service account `service-account-name`:
+		- Create a custom iam role `iam-role-id` with container.secrets.* permissions and add the role to service account `gsa-name`:
 			- service-secret-role.yaml
 
 				    title: Kubernetes Engine Secret Admin
@@ -40,32 +40,84 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 
 				    gcloud iam roles create <iam-role-id> --project=<gcloud-project-id> --file=service-secret-role.yaml
 
-			- Add the role to service account `service-account-name`:
+			- Add the role to service account `gsa-name`:
 
-				    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<service-account-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/<iam-role-id>"
+				    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/<iam-role-id>"
 
-		- Or just add [Kubernetes Engine Developer] role to service account `service-account-name`:
+		- Or just add [Kubernetes Engine Developer] role to service account `gsa-name`:
 
-			    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<service-account-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/container.developer"
+			    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/container.developer"
 
-- [Configure cluster access for kubectl](https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl) (This is already done in the entrypoint.sh file in this project)
-
-- Generating service account key for authentication.
+- Modify the cluster to enable Workload Identity
 ```
-gcloud iam service-accounts keys create <key-name> --iam-account <service-account-name>@<gcloud-project-id>.iam.gserviceaccount.com
+gcloud container clusters update <cluster-name> \
+  --workload-pool=<gcloud-project-id>.svc.id.goog
 ```
 
-- Set the environment variable
-``` 
-export GOOGLE_APPLICATION_CREDENTIALS="<path/to/your/service/account/key.json>"
+- Modify an existing node pool to enable GKE_METADATA
+```
+gcloud container node-pools update <nodepool-name> \
+  --cluster=<cluster-name> \
+  --workload-metadata=GKE_METADATA
+```
+
+- Create Kubernetes service account
+```
+kubectl apply -f service-account/serviceaccount.yaml
+```
+
+- Set up Workload Identity binding
+```
+gcloud iam service-accounts add-iam-policy-binding \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:<gcloud-project-id>.svc.id.goog[<k8s_namespace>/<ksa_name>]" \
+  <gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com
+```
+
+- Annotate the KSA to complete the binding between the KSA and GSA
+```
+kubectl annotate serviceaccount \
+  --namespace <k8s_namespace> \
+   <ksa_name> \
+   iam.gke.io/gcp-service-account=<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com
+```
+
+- Set up Kubernetes service account role and binding
+(action might require container.roles.create and container.roles.bind permissions if using gke cluster)
+```
+kubectl apply -f service-account/role.yaml
 ```
 
 ## Usage
-```
-go build
-go test -v
-./secret-sync-controller --config-path config.yaml --period 1000
-```
+- Out-of-Cluster
+	- testing with mock-client
 
-## TODO
-Script to setup workload identity binding.
+			go test -v ./...
+
+	- testing pkg/controller with e2e-client
+	
+			cd pkg/controller/
+			go test -v --e2e-client --gsm-project <gcloud-project-id>
+	
+	- run controller in continuous mode
+	
+			./secret-sync-controller --config-path config.yaml --period 1000
+	
+	- run controller in one-shot mode
+
+			./secret-sync-controller --config-path config.yaml --period 1000 --run-once
+	
+- In-Cluster
+	- build and push docker image
+
+			docker build -t gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy .
+			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy
+
+	- run controller in continuous mode as job
+			
+			kubectl apply -f controller-job.yaml
+
+	- run testing job
+
+			kubectl apply -f test-controller-job.yaml
+

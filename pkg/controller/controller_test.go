@@ -23,6 +23,7 @@ import (
 	"github.com/b01901143/secret-sync-controller/tests"
 	"os"
 	"testing"
+	"text/template"
 )
 
 var testClient tests.ClientInterface
@@ -30,6 +31,7 @@ var testClient tests.ClientInterface
 type testOptions struct {
 	e2eClient  bool
 	gsmProject string
+	kubeconfig string
 }
 
 var testOpts testOptions
@@ -37,20 +39,21 @@ var testOpts testOptions
 func TestMain(m *testing.M) {
 	flag.BoolVar(&testOpts.e2eClient, "e2e-client", false, "Test with API or mock client.")
 	flag.StringVar(&testOpts.gsmProject, "gsm-project", "project-1", "Secret MAnager prject for e2e testing.")
+	flag.StringVar(&testOpts.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.Parse()
 
 	if !testOpts.e2eClient {
 		testClient = tests.NewMockClient([]string{testOpts.gsmProject})
 	} else {
 		// prepare clients
-		k8sClientset, err := client.NewK8sClientset()
+		k8sClientset, err := client.NewK8sClientset(testOpts.kubeconfig)
 		if err != nil {
-			fmt.Printf("New kubernetes client failed: %s", err)
+			fmt.Printf("Fail to create new kubernetes client: %s", err)
 			os.Exit(1)
 		}
 		secretManagerClient, err := client.NewSecretManagerClient(context.Background())
 		if err != nil {
-			fmt.Printf("New Secret Manager client failed: %s", err)
+			fmt.Printf("Fail to create new Secret Manager client: %s", err)
 			os.Exit(1)
 		}
 
@@ -65,41 +68,49 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-var fixtureConfig = []byte(`
-{
-  "secretManager": {
-    "testOpts.gsmProject": {
-      "gsm-password": "gsm-password-v1",
-      "gsm-token": "gsm-token-v1",
-      "gsm-old-token": "old-token"
-    }
-  },
-  "kubernetes": {
-    "ns-a": {
-      "secret-a": {
-        "key-a": "old-token"
-      }
-    },
-    "ns-b": {
-      "secret-b": {}
-    },
-    "ns-c": {}
-  }
+type KubernetesSecret struct {
+	Namespace string
+	Secret    string
+	Key       string
+	Value     string
 }
-`)
 
 func TestSync(t *testing.T) {
-	fixture, err := tests.NewFixture(fixtureConfig, testOpts.gsmProject)
+	var fixtureConfig = `
+      secretmanager:
+        {{.}}: 
+          gsm-password: gsm-password-v1
+          gsm-token: gsm-token-v1
+          gsm-old-token: old-token
+      kubernetes:
+        ns-a:
+          secret-a:
+            key-a: old-token
+        ns-b:
+          secret-b:
+        ns-c:
+`
+	// substitute fixture project to testOpts.gsmProject
+	temp := template.Must(template.New("config").Parse(fixtureConfig))
+	fixtureBuffer := new(bytes.Buffer)
+	temp.Execute(fixtureBuffer, testOpts.gsmProject)
+
+	fixture, err := tests.NewFixture(fixtureBuffer.Bytes())
 	if err != nil {
 		t.Fatalf("Fail to parse fixture: %s", err)
 	}
 
-	defer fixture.TeardownNamespaces(testClient)
+	err = fixture.Setup(testClient)
+	if err != nil {
+		t.Fatalf("Fail to setup fixture: %s", err)
+	}
+
+	defer fixture.Teardown(testClient)
 
 	var testcases = []struct {
 		name      string
 		spec      config.SecretSyncSpec
-		want      tests.Fixture
+		want      KubernetesSecret
 		update    bool
 		expectErr bool
 	}{
@@ -117,16 +128,11 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
+			want: KubernetesSecret{
+				Namespace: "ns-a",
+				Secret:    "secret-a",
+				Key:       "key-a",
+				Value:     "old-token",
 			},
 
 			update: false,
@@ -147,16 +153,11 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "gsm-password-v1",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
+			want: KubernetesSecret{
+				Namespace: "ns-a",
+				Secret:    "secret-a",
+				Key:       "key-a",
+				Value:     "gsm-password-v1",
 			},
 
 			update: true,
@@ -177,17 +178,11 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a":  "old-token",
-						"missed": "gsm-token-v1",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
+			want: KubernetesSecret{
+				Namespace: "ns-a",
+				Secret:    "secret-a",
+				Key:       "missed",
+				Value:     "gsm-token-v1",
 			},
 
 			update: true,
@@ -208,18 +203,11 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": map[string]string{
-						"missed": "gsm-token-v1",
-					},
-				},
-				"ns-c": nil,
+			want: KubernetesSecret{
+				Namespace: "ns-b",
+				Secret:    "secret-b",
+				Key:       "missed",
+				Value:     "gsm-token-v1",
 			},
 
 			update: true,
@@ -240,20 +228,11 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": map[string]interface{}{
-					"missed": map[string]string{
-						"missed": "gsm-token-v1",
-					},
-				},
+			want: KubernetesSecret{
+				Namespace: "ns-c",
+				Secret:    "missed",
+				Key:       "missed",
+				Value:     "gsm-token-v1",
 			},
 
 			update: true,
@@ -274,17 +253,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
-			},
+			want: KubernetesSecret{},
 
 			update: false,
 
@@ -304,17 +273,7 @@ func TestSync(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
-				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
-			},
+			want: KubernetesSecret{},
 
 			update: false,
 
@@ -330,7 +289,7 @@ func TestSync(t *testing.T) {
 				RunOnce: true,
 			}
 
-			err = fixture.Setup(testClient)
+			err = fixture.Reset(testClient)
 			if err != nil {
 				t.Error(err)
 			}
@@ -348,78 +307,59 @@ func TestSync(t *testing.T) {
 				t.Errorf("Unexpected error: %s", err)
 			}
 
-			// validate result
-			for namespace, nsItem := range tc.want {
-				if nsItem == nil {
-					continue
-				}
-				for secret, secretItem := range nsItem.(map[string]interface{}) {
-					err = controller.Client.ValidateKubernetesSecret(namespace, secret)
-					if err != nil {
-						t.Error(err)
-					}
-
-					if secretItem == nil {
-						continue
-					}
-					for key, data := range secretItem.(map[string]string) {
-						value, err := controller.Client.GetKubernetesSecretValue(namespace, secret, key)
-						if err != nil {
-							t.Error(err)
-						}
-						if !bytes.Equal(value, []byte(data)) {
-							t.Errorf("Fail to validate namespaces/%s/secrets/%s[%s]. Expected %s but got %s.", namespace, secret, key, data, value)
-						}
-
-					}
-				}
+			if tc.expectErr {
+				return
 			}
 
-			err = fixture.TeardownSecrets(testClient)
+			// validate result
+			value, err := controller.Client.GetKubernetesSecretValue(tc.want.Namespace, tc.want.Secret, tc.want.Key)
 			if err != nil {
 				t.Error(err)
 			}
+			if !bytes.Equal(value, []byte(tc.want.Value)) {
+				t.Errorf("Fail to validate namespaces/%s/secrets/%s[%s]. Expected %s but got %s.", tc.want.Namespace, tc.want.Secret, tc.want.Key, tc.want.Value, value)
+			}
+
 		})
 	}
 }
 
-/*
-# fixtureConfig.json
-{
-  "secretManager": {
-    testOpts.gsmProject: {
-      "gsm-password": "gsm-password-v1",
-      "gsm-token": "gsm-token-v1",
-      "gsm-old-token": "old-token"
-    }
-  },
-  "kubernetes": {
-    "ns-a": {
-      "secret-a": {
-        "key-a": "old-token"
-      }
-    },
-    "ns-b": {
-      "secret-b": {}
-    },
-    "ns-c": {}
-  }
-}
-
-*/
-
 func TestSyncAll(t *testing.T) {
-	fixture, err := tests.NewFixture(fixtureConfig, testOpts.gsmProject)
+	var fixtureConfig = `
+      secretmanager:
+        {{.}}: 
+          gsm-password: gsm-password-v1
+          gsm-token: gsm-token-v1
+          gsm-old-token: old-token
+      kubernetes:
+        ns-a:
+          secret-a:
+            key-a: old-token
+        ns-b:
+          secret-b:
+        ns-c:
+`
+	// substitute fixture project to testOpts.gsmProject
+	temp := template.Must(template.New("config").Parse(fixtureConfig))
+	fixtureBuffer := new(bytes.Buffer)
+	temp.Execute(fixtureBuffer, testOpts.gsmProject)
+
+	fixture, err := tests.NewFixture(fixtureBuffer.Bytes())
 	if err != nil {
 		t.Fatalf("Fail to parse fixture: %s", err)
 	}
 
-	defer fixture.TeardownNamespaces(testClient)
+	err = fixture.Setup(testClient)
+	if err != nil {
+		t.Fatalf("Fail to setup fixture: %s", err)
+	}
+
+	defer fixture.Teardown(testClient)
 
 	var testcases = []struct {
 		name string
 		conf config.SecretSyncConfig
-		want tests.Fixture
+		want []KubernetesSecret
 	}{
 		{
 			name: "Sync all pairs normally.",
@@ -450,18 +390,19 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "gsm-token-v1",
-					},
+			want: []KubernetesSecret{
+				{
+					Namespace: "ns-a",
+					Secret:    "secret-a",
+					Key:       "key-a",
+					Value:     "gsm-token-v1",
 				},
-				"ns-b": map[string]interface{}{
-					"secret-b": map[string]string{
-						"key-b": "gsm-password-v1",
-					},
+				{
+					Namespace: "ns-b",
+					Secret:    "secret-b",
+					Key:       "key-b",
+					Value:     "gsm-password-v1",
 				},
-				"ns-c": nil,
 			},
 		},
 		{
@@ -493,18 +434,19 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "old-token",
-					},
+			want: []KubernetesSecret{
+				{
+					Namespace: "ns-a",
+					Secret:    "secret-a",
+					Key:       "key-a",
+					Value:     "old-token",
 				},
-				"ns-b": map[string]interface{}{
-					"secret-b": map[string]string{
-						"key-b": "gsm-password-v1",
-					},
+				{
+					Namespace: "ns-b",
+					Secret:    "secret-b",
+					Key:       "key-b",
+					Value:     "gsm-password-v1",
 				},
-				"ns-c": nil,
 			},
 		},
 		{
@@ -536,16 +478,13 @@ func TestSyncAll(t *testing.T) {
 				},
 			},
 
-			want: tests.Fixture{
-				"ns-a": map[string]interface{}{
-					"secret-a": map[string]string{
-						"key-a": "gsm-token-v1",
-					},
+			want: []KubernetesSecret{
+				{
+					Namespace: "ns-a",
+					Secret:    "secret-a",
+					Key:       "key-a",
+					Value:     "gsm-token-v1",
 				},
-				"ns-b": map[string]interface{}{
-					"secret-b": nil,
-				},
-				"ns-c": nil,
 			},
 		},
 	}
@@ -559,7 +498,7 @@ func TestSyncAll(t *testing.T) {
 				RunOnce: true,
 			}
 
-			err = fixture.Setup(testClient)
+			err = fixture.Reset(testClient)
 			if err != nil {
 				t.Error(err)
 			}
@@ -567,35 +506,15 @@ func TestSyncAll(t *testing.T) {
 			controller.SyncAll()
 
 			// validate result
-			for namespace, nsItem := range tc.want {
-				if nsItem == nil {
-					continue
+			for _, k8sSecret := range tc.want {
+				value, err := controller.Client.GetKubernetesSecretValue(k8sSecret.Namespace, k8sSecret.Secret, k8sSecret.Key)
+				if err != nil {
+					t.Error(err)
 				}
-				for secret, secretItem := range nsItem.(map[string]interface{}) {
-					err = controller.Client.ValidateKubernetesSecret(namespace, secret)
-					if err != nil {
-						t.Error(err)
-					}
-
-					if secretItem == nil {
-						continue
-					}
-					for key, data := range secretItem.(map[string]string) {
-						value, err := controller.Client.GetKubernetesSecretValue(namespace, secret, key)
-						if err != nil {
-							t.Error(err)
-						}
-						if !bytes.Equal(value, []byte(data)) {
-							t.Errorf("Fail to validate namespaces/%s/secrets/%s[%s]. Expected %s but got %s.", namespace, secret, key, data, value)
-						}
-
-					}
+				if !bytes.Equal(value, []byte(k8sSecret.Value)) {
+					t.Errorf("Fail to validate namespaces/%s/secrets/%s[%s]. Expected %s but got %s.", k8sSecret.Namespace, k8sSecret.Secret, k8sSecret.Key, k8sSecret.Value, value)
 				}
-			}
 
-			err = fixture.TeardownSecrets(testClient)
-			if err != nil {
-				t.Error(err)
 			}
 		})
 	}

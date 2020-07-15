@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: secret-sync-controller-test
+spec:
+  template:
+    spec:
+      serviceAccountName: secret-sync-controller
+      containers:
+      - name: sync-container
+        image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy
+        command: ["sh", "-c", "go test ./... && cd pkg/controller && go test -v --e2e-client --gsm-project=k8s-jkns-gke-soak"]
+      restartPolicy: Never

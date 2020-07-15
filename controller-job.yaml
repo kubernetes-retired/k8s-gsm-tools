@@ -1,0 +1,13 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: secret-sync-controller
+spec:
+  template:
+    spec:
+      serviceAccountName: secret-sync-controller
+      containers:
+      - name: sync-container
+        image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
+        command: ["sh", "-c", "go build -o controller-cmd cmd/controller/main.go && ./controller-cmd --config-path config.yaml --period 1000"]
+      restartPolicy: Never

@@ -17,20 +17,11 @@ package tests
 // Should be used with caution. Only for testing purpose.
 
 import (
-	// "context"
-	// "encoding/json"
-	// "strings"
-	// "time"
 	"fmt"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	// "google.golang.org/api/iterator"
-	// secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
-	// "github.com/b01901143/secret-sync-controller/pkg/client"
 )
 
 type MockClient struct { // mock client

@@ -15,8 +15,9 @@ require (
 	google.golang.org/grpc v1.30.0
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.17.3
-	k8s.io/apimachinery v0.17.3
-	k8s.io/client-go v9.0.0+incompatible
+	k8s.io/apimachinery v0.18.2
+	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/test-infra v0.0.0-20200709040651-6563d6a195ee
+	sigs.k8s.io/kind v0.8.1 // indirect
 )

@@ -26,6 +26,7 @@ import (
 
 type options struct {
 	configPath   string
+	kubeconfig   string
 	runOnce      bool
 	resyncPeriod int64
 }
@@ -40,6 +41,7 @@ func (o *options) Validate() error {
 func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
+	flag.StringVar(&o.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.BoolVar(&o.runOnce, "run-once", false, "Sync once instead of continuous loop.")
 	flag.Int64Var(&o.resyncPeriod, "period", 1000, "Resync period in milliseconds.")
 	flag.Parse()
@@ -55,7 +57,7 @@ func main() {
 	}
 
 	// prepare clients
-	k8sClientset, err := client.NewK8sClientset()
+	k8sClientset, err := client.NewK8sClientset(o.kubeconfig)
 	if err != nil {
 		klog.Errorf("Fail to create new kubernetes client: %s", err)
 	}

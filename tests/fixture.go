@@ -18,7 +18,7 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
+	"gopkg.in/yaml.v2"
 	"strings"
 	"time"
 
@@ -120,29 +120,32 @@ func (cl *E2eTestClient) CleanupKubernetesSecrets(namespace string) error {
 	return nil
 }
 
-type Fixture map[string]interface{}
+type Fixture struct {
+	// map of namespace to secret to key to value
+	Kubernetes map[string]map[string]map[string]string
+	// map of project to secret to value
+	SecretManager map[string]map[string]string
+}
 
-func NewFixture(config []byte, project string) (f Fixture, err error) {
-	err = json.Unmarshal(config, &f)
-	f["secretManager"].(map[string]interface{})[project] = f["secretManager"].(map[string]interface{})["testOpts.gsmProject"]
-	delete(f["secretManager"].(map[string]interface{}), "testOpts.gsmProject")
+func NewFixture(config []byte) (f Fixture, err error) {
+	err = yaml.Unmarshal(config, &f)
 
 	return f, err
 }
 
-// Setup sets up the testing environment with the Fixture and the given client.
+// Setup sets up the Secret Manager secrets and K8s namespaces with the Fixture and the given client.
 // Returns nil if successful, error otherwise
 func (f Fixture) Setup(cl ClientInterface) error {
-	for project, projItem := range f["secretManager"].(map[string]interface{}) {
-		for secret, data := range projItem.(map[string]interface{}) {
-			err := cl.UpsertSecretManagerSecret(project, secret, []byte(data.(string)))
+	for project, projItem := range f.SecretManager {
+		for secret, data := range projItem {
+			err := cl.UpsertSecretManagerSecret(project, secret, []byte(data))
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	for namespace, nsItem := range f["kubernetes"].(map[string]interface{}) {
+	for namespace := range f.Kubernetes {
 		// check if the namespace exists
 		err := cl.ValidateKubernetesNamespace(namespace)
 		if err != nil {
@@ -156,11 +159,23 @@ func (f Fixture) Setup(cl ClientInterface) error {
 				return err
 			}
 		}
+	}
+	return nil
+}
 
+// Reset clears or re-creates the K8s secrets with the Fixture and the given client.
+// Returns nil if successful, error otherwise
+func (f Fixture) Reset(cl ClientInterface) error {
+	for namespace, nsItem := range f.Kubernetes {
 		if nsItem == nil {
 			continue
 		}
-		for secret, secretItem := range nsItem.(map[string]interface{}) {
+		err := cl.CleanupKubernetesSecrets(namespace)
+		if err != nil {
+			return err
+		}
+
+		for secret, secretItem := range nsItem {
 			err = cl.CreateKubernetesSecret(namespace, secret)
 			if err != nil {
 				return err
@@ -169,8 +184,8 @@ func (f Fixture) Setup(cl ClientInterface) error {
 			if secretItem == nil {
 				continue
 			}
-			for key, data := range secretItem.(map[string]interface{}) {
-				err = cl.UpsertKubernetesSecret(namespace, secret, key, []byte(data.(string)))
+			for key, data := range secretItem {
+				err = cl.UpsertKubernetesSecret(namespace, secret, key, []byte(data))
 				if err != nil {
 					return err
 				}
@@ -181,11 +196,11 @@ func (f Fixture) Setup(cl ClientInterface) error {
 	return nil
 }
 
-// TeardownSecrets deletes all Secret Manager secrets and Kubernetes secrets created by Setup().
+// Teardown deletes all Secret Manager secrets and Kubernetes secrets and namespaces created by Setup().
 // Returns nil if successful, error otherwise
-func (f Fixture) TeardownSecrets(cl ClientInterface) error {
-	for project, projItem := range f["secretManager"].(map[string]interface{}) {
-		for secret, _ := range projItem.(map[string]interface{}) {
+func (f Fixture) Teardown(cl ClientInterface) error {
+	for project, projItem := range f.SecretManager {
+		for secret := range projItem {
 			err := cl.DeleteSecretManagerSecret(project, secret)
 			if err != nil {
 				return err
@@ -193,20 +208,13 @@ func (f Fixture) TeardownSecrets(cl ClientInterface) error {
 		}
 	}
 
-	for namespace, _ := range f["kubernetes"].(map[string]interface{}) {
+	for namespace := range f.Kubernetes {
 		err := cl.CleanupKubernetesSecrets(namespace)
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
 
-// TeardownNamespaces deletes all Kubernetes namespaces created by Setup().
-// Returns nil if successful, error otherwise
-func (f Fixture) TeardownNamespaces(cl ClientInterface) error {
-	for namespace, _ := range f["kubernetes"].(map[string]interface{}) {
-		err := cl.CleanupKubernetesNamespace(namespace)
+		err = cl.CleanupKubernetesNamespace(namespace)
 		if err != nil {
 			return err
 		}
