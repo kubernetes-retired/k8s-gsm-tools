@@ -23,7 +23,7 @@ import (
 
 type SecretSyncController struct {
 	Client       client.Interface
-	Config       *config.SecretSyncConfig
+	Agent        *config.Agent
 	RunOnce      bool
 	ResyncPeriod time.Duration
 	// TODO: in-struct looger?
@@ -53,10 +53,12 @@ func (c *SecretSyncController) Start(stopChan <-chan struct{}) error {
 	}
 }
 
-// SyncAll sychronizes all secret pairs specified in Config.Specs.
-// Pops error message for any secret pair that it failed to sync or access.
+// SyncAll sychronizes all secret pairs specified in Agent.Config().Specs
+// Pops error message for any secret pair that it failed to sync or access
 func (c *SecretSyncController) SyncAll() {
-	for _, spec := range c.Config.Specs {
+	// iterate on copy of Specs instead of index,
+	// so that the update in .Agent.config will only be observed outside of the loop SyncAll()
+	for _, spec := range c.Agent.Config().Specs {
 		updated, err := c.Sync(spec)
 		if err != nil {
 			klog.Errorf("Secret sync failed for %s: %s", spec, err)

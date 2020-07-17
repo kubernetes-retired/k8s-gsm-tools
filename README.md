@@ -110,9 +110,11 @@ kubectl apply -f service-account/role.yaml
 - In-Cluster
 	- build and push docker image
 
-			docker build -t gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy .
-			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller:deploy
+			docker build -t gcr.io/k8s-jkns-gke-soak/secret-sync-controller .
+			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller
 
+	- create ConfigMap `syncConfig` and mount it to `/tmp/config`.
+	
 	- run controller in continuous mode as job
 			
 			kubectl apply -f controller-job.yaml

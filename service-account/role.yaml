@@ -9,6 +9,9 @@ rules:
 - apiGroups: [""]
   resources: ["namespaces"]
   verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["*"]
 
 ---
 

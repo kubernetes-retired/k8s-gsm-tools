@@ -89,6 +89,9 @@ func (cl *MockClient) UpsertKubernetesSecret(namespace, id, key string, data []b
 
 	return nil
 }
+func (cl *MockClient) UpsertKubernetesConfigMap(namespace, name, key, data string) error {
+	return nil
+}
 func (cl *MockClient) CreateKubernetesSecret(namespace, id string) error {
 	err := cl.ValidateKubernetesNamespace(namespace)
 	if err != nil {

@@ -70,21 +70,17 @@ func main() {
 		SecretManagerClient: *secretManagerClient,
 	}
 
-	// prepare config
-	secretSyncConfig := &config.SecretSyncConfig{}
-	err = secretSyncConfig.LoadFrom(o.configPath)
-	if err != nil {
-		klog.Errorf("Fail to load config: %s", err)
-	}
+	// prepare config agent
+	configAgent := &config.Agent{}
+	runFunc, err := configAgent.WatchConfig(o.configPath)
 
-	err = secretSyncConfig.Validate()
-	if err != nil {
-		klog.Errorf("Fail to validate: %s", err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go runFunc(ctx)
+	defer cancel()
 
 	controller := &controller.SecretSyncController{
 		Client:       clientInterface,
-		Config:       secretSyncConfig,
+		Agent:        configAgent,
 		RunOnce:      o.runOnce,
 		ResyncPeriod: time.Duration(o.resyncPeriod) * time.Millisecond,
 	}
