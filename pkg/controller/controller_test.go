@@ -494,9 +494,10 @@ func TestSyncAll(t *testing.T) {
 
 			controller := &SecretSyncController{
 				Client:  testClient,
-				Config:  &tc.conf,
+				Agent:   &config.Agent{},
 				RunOnce: true,
 			}
+			controller.Agent.Set(&tc.conf)
 
 			err = fixture.Reset(testClient)
 			if err != nil {
