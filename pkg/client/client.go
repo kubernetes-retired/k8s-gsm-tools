@@ -80,7 +80,6 @@ type Interface interface {
 	CreateKubernetesNamespace(namespace string) error
 	GetKubernetesSecretValue(namespace, id, key string) ([]byte, error)
 	UpsertKubernetesSecret(namespace, id, key string, data []byte) error
-	UpsertKubernetesConfigMap(namespace, name, key, data string) error
 	GetSecretManagerSecretValue(project, id string) ([]byte, error)
 	UpsertSecretManagerSecret(project, id string, data []byte) error
 }
@@ -176,42 +175,6 @@ func (cl *Client) UpsertKubernetesSecret(namespace, id, key string, data []byte)
 			},
 		}
 		_, err = cl.K8sClientset.CoreV1().Secrets(namespace).Create(newSecret)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// UpsertKubernetesConfigMap updates the value of key of the kubernetes configMap specified by namespace, name.
-// It inserts a new configMap if id doesn't already exist.
-// Returns nil if successful, error otherwise
-func (cl *Client) UpsertKubernetesConfigMap(namespace, name, key, data string) error {
-	// check if the namespace exists
-	err := cl.ValidateKubernetesNamespace(namespace)
-	if err != nil {
-		return err
-	}
-
-	newConfigMap := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Data: map[string]string{
-			key: data,
-		},
-	}
-	_, err = cl.K8sClientset.CoreV1().ConfigMaps(namespace).Update(newConfigMap)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		// create a new configMap in the case that it does not already exist
-		_, err = cl.K8sClientset.CoreV1().ConfigMaps(namespace).Create(newConfigMap)
-
 		if err != nil {
 			return err
 		}
