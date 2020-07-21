@@ -21,7 +21,7 @@ import (
 	"os"
 	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
 	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
-	"sigs.k8s.io/k8s-gsm-tools/tests"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/tests"
 	"testing"
 	"text/template"
 )

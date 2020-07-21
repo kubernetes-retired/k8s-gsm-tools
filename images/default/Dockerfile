@@ -36,7 +36,7 @@ RUN make "${cmd}"
 FROM gcr.io/distroless/base-debian10
 
 ARG cmd
-COPY --from=build "/go/src/app/${cmd}" /app
+COPY --from=build "/go/src/app/_output/bin/${cmd}" /app
 
 ENTRYPOINT ["/app"]
 
