@@ -99,6 +99,12 @@ kubectl apply -f service-account/role.yaml
 			cd pkg/controller/
 			go test -v --e2e-client --gsm-project <gcloud-project-id>
 	
+	- build binary
+
+			go build -o secret-sync-controller cmd/secret-sync-controller/main.go
+			# mock mounted ConfigMap
+			mkdir ..data
+
 	- run controller in continuous mode
 	
 			./secret-sync-controller --config-path config.yaml --period 1000 
@@ -109,11 +115,17 @@ kubectl apply -f service-account/role.yaml
 
 	- run controller demo
 
-			cd demo
+			cd cmd/demo
 			go build
 			# to mock mounted ConfigMap 
 			mkdir ..data
-			./demo --config-path config.yaml --resync-period 1000 --poll-period 500 --duration 70000 --switch-period 10000 --gsm-project=k8s-jkns-gke-soak
+			./demo --config-path config.yaml \
+            --resync-period 1000 \
+            --poll-period 500 \
+            --duration 70000 \
+            --switch-period 10000 \
+            --gsm-project=k8s-jkns-gke-soak \
+            --output-path .
 			
 	
 - In-Cluster
@@ -131,6 +143,12 @@ kubectl apply -f service-account/role.yaml
 	- run testing job
 
 			kubectl apply -f test-controller-job.yaml
+	
+	- run controller demo
+
+			kubectl apply -f cmd/demo/demo-job.yaml
+		
+
 
 
 ## Building / pushing images

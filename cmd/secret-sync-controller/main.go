@@ -15,12 +15,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
-	"github.com/b01901143/secret-sync-controller/pkg/client"
-	"github.com/b01901143/secret-sync-controller/pkg/config"
-	"github.com/b01901143/secret-sync-controller/pkg/controller"
+	"fmt"
 	"k8s.io/klog"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/controller"
 	"time"
 )
 
@@ -33,7 +33,7 @@ type options struct {
 
 func (o *options) Validate() error {
 	if o.configPath == "" {
-		return errors.New("required flag --config-path was unset")
+		return fmt.Errorf("required flag --config-path was unset")
 	}
 	return nil
 }
@@ -49,8 +49,9 @@ func gatherOptions() options {
 }
 
 func main() {
-	o := gatherOptions()
+	klog.InitFlags(nil)
 
+	o := gatherOptions()
 	err := o.Validate()
 	if err != nil {
 		klog.Errorf("Invalid options: %s", err)
@@ -73,6 +74,9 @@ func main() {
 	// prepare config agent
 	configAgent := &config.Agent{}
 	runFunc, err := configAgent.WatchConfig(o.configPath)
+	if err != nil {
+		klog.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go runFunc(ctx)

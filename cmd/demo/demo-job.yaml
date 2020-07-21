@@ -13,7 +13,20 @@ spec:
       containers:
       - name: sync-container
         image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
-        command: ["sh", "-c", "cd demo && go build && ./demo --config-path config.yaml --resync-period 1000 --poll-period 500 --duration 70000 --switch-period 10000 --gsm-project=k8s-jkns-gke-soak"]
+        command: 
+        - sh
+        args:
+        - -c
+        - |
+          cd cmd/demo
+          go build
+          ./demo --config-path config.yaml \
+            --resync-period 1000 \
+            --poll-period 500 \
+            --duration 70000 \
+            --switch-period 10000 \
+            --gsm-project=k8s-jkns-gke-soak \
+            --output-path .
         volumeMounts:
         - name: config-volume
           readOnly: true
