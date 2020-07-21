@@ -13,7 +13,8 @@ limitations under the License.
 
 package config
 
-// Package config defines configuration and sync-pair structs
+// This is a config agent for RotatedSecretConfig.
+// It watches the mounted configMap, and updates the RotatedSecretConfig accordingly.
 
 import (
 	"context"
@@ -26,7 +27,7 @@ import (
 
 type Agent struct {
 	mutex  sync.RWMutex
-	config *SecretSyncConfig
+	config *RotatedSecretConfig
 }
 
 // WatchConfig will begin watching the config file at the provided configPath.
@@ -34,7 +35,7 @@ type Agent struct {
 // Future load or valiadate failures will be logged but continue to attempt loading config.
 func (ca *Agent) WatchConfig(configPath string) (func(ctx context.Context), error) {
 	updateFunc := func() error {
-		newConfig := &SecretSyncConfig{}
+		newConfig := &RotatedSecretConfig{}
 		err := newConfig.LoadFrom(configPath)
 		if err != nil {
 			return fmt.Errorf("Fail to load config: %s", err)
@@ -63,13 +64,13 @@ func (ca *Agent) WatchConfig(configPath string) (func(ctx context.Context), erro
 	return runFunc, err
 }
 
-func (ca *Agent) Config() *SecretSyncConfig {
+func (ca *Agent) Config() *RotatedSecretConfig {
 	ca.mutex.RLock()
 	defer ca.mutex.RUnlock()
 	return ca.config
 }
 
-func (ca *Agent) Set(newConfig *SecretSyncConfig) {
+func (ca *Agent) Set(newConfig *RotatedSecretConfig) {
 	ca.mutex.Lock()
 	defer ca.mutex.Unlock()
 

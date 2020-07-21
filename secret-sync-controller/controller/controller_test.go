@@ -18,10 +18,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/b01901143/secret-sync-controller/pkg/client"
-	"github.com/b01901143/secret-sync-controller/pkg/config"
-	"github.com/b01901143/secret-sync-controller/tests"
 	"os"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
+	"sigs.k8s.io/k8s-gsm-tools/tests"
 	"testing"
 	"text/template"
 )
@@ -38,7 +38,7 @@ var testOpts testOptions
 
 func TestMain(m *testing.M) {
 	flag.BoolVar(&testOpts.e2eClient, "e2e-client", false, "Test with API or mock client.")
-	flag.StringVar(&testOpts.gsmProject, "gsm-project", "project-1", "Secret Manager prject for e2e testing.")
+	flag.StringVar(&testOpts.gsmProject, "gsm-project", "project-1", "Secret Manager project for e2e testing.")
 	flag.StringVar(&testOpts.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.Parse()
 

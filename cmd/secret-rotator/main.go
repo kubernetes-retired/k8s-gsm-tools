@@ -18,17 +18,15 @@ import (
 	"flag"
 	"fmt"
 	"k8s.io/klog"
-	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
-	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
-	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/controller"
-	"time"
+	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/config"
+	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/rotator"
+	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/svckey"
 )
 
 type options struct {
-	configPath   string
-	kubeconfig   string
-	runOnce      bool
-	resyncPeriod int64
+	configPath string
+	kubeconfig string
 }
 
 func (o *options) Validate() error {
@@ -42,8 +40,6 @@ func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
 	flag.StringVar(&o.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
-	flag.BoolVar(&o.runOnce, "run-once", false, "Sync once instead of continuous loop.")
-	flag.Int64Var(&o.resyncPeriod, "period", 1000, "Resync period in milliseconds.")
 	flag.Parse()
 	return o
 }
@@ -57,18 +53,10 @@ func main() {
 		klog.Errorf("Invalid options: %s", err)
 	}
 
-	// prepare clients
-	k8sClientset, err := client.NewK8sClientset(o.kubeconfig)
-	if err != nil {
-		klog.Errorf("Fail to create new kubernetes client: %s", err)
-	}
-	secretManagerClient, err := client.NewSecretManagerClient(context.Background())
+	// prepare client
+	secretManagerClient, err := client.NewClient(context.Background())
 	if err != nil {
 		klog.Errorf("Fail to create new Secret Manager client: %s", err)
-	}
-	clientInterface := &client.Client{
-		K8sClientset:        *k8sClientset,
-		SecretManagerClient: *secretManagerClient,
 	}
 
 	// prepare config agent
@@ -82,14 +70,15 @@ func main() {
 	go runFunc(ctx)
 	defer cancel()
 
-	controller := &controller.SecretSyncController{
-		Client:       clientInterface,
+	// prepare provisioners for all supported types of secrets
+	provisioners := map[string]rotator.SecretProvisioner{}
+	provisioners[svckey.ServiceAccountKeySpec{}.Type()] = &svckey.Provisioner{secretManagerClient}
+
+	rotator := &rotator.SecretRotator{
+		Client:       secretManagerClient,
 		Agent:        configAgent,
-		RunOnce:      o.runOnce,
-		ResyncPeriod: time.Duration(o.resyncPeriod) * time.Millisecond,
+		Provisioners: provisioners,
 	}
 
-	stopChan := make(chan struct{})
-	controller.Start(stopChan)
-
+	rotator.RunOnce()
 }

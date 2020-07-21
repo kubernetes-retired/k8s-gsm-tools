@@ -28,7 +28,7 @@ import (
 
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 
-	"github.com/b01901143/secret-sync-controller/pkg/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
 )
 
 type ClientInterface interface {
