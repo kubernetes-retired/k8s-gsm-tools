@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: ns-a
+  name: svc-consumer
+  labels:
+    name: svc-test
+spec:
+  template:
+    spec:
+      serviceAccountName: default
+      volumes:
+      - name: secret-volume
+        secret:
+          secretName: secret-a
+      containers:
+      - name: svc-test-container
+        image: gcr.io/k8s-jkns-gke-soak/consumer:latest
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: /etc/secret-volume/key-a
+        volumeMounts:
+        - name: secret-volume
+          readOnly: true
+          mountPath: "/etc/secret-volume"
+        command: 
+        - /app
+        args:
+        - --mount-path=$(GOOGLE_APPLICATION_CREDENTIALS)
+        - --period=3000
+        - --gsm-project=k8s-jkns-gke-soak
+      restartPolicy: Never

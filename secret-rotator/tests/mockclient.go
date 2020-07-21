@@ -88,6 +88,18 @@ func (cl *MockClient) ValidateSecretVersion(project, id, version string) error {
 	return nil
 }
 
+// ValidateAndConvertVersion converts version to the version number if version is `latest`
+// returns the numeric version string if the secret version exists, otherwise error.
+func (cl *MockClient) ValidateAndConvertVersion(project, id, version string) (string, error) {
+	err := cl.ValidateSecretVersion(project, id, version)
+
+	if version == "latest" {
+		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
+	}
+
+	return version, err
+}
+
 // UpsertSecret adds a new version to the secret specified by project, id.
 // It inserts a new secret if id doesn't already exist.
 // If successful the latest version will have 'data' as its secret value,
@@ -115,13 +127,9 @@ func (cl *MockClient) UpsertSecret(project, id string, data []byte) (string, err
 // GetCreateTime gets the createTime of the secret version specified by project, id, version.
 // Returns createTime if successful, otherwise error.
 func (cl *MockClient) GetCreateTime(project, id, version string) (time.Time, error) {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return time.Time{}, err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	creatTime := cl.Secrets[project][id].Versions[version].CreateTime
@@ -148,13 +156,9 @@ func (cl *MockClient) GetSecretLabels(project, id string) (map[string]string, er
 // GetSecretVersionData gets the data of the secret version specified by project, id, version.
 // Returns secret value if successful, otherwise error
 func (cl *MockClient) GetSecretVersionData(project, id, version string) ([]byte, error) {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return nil, err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	return cl.Secrets[project][id].Versions[version].Data, nil
@@ -163,13 +167,9 @@ func (cl *MockClient) GetSecretVersionData(project, id, version string) ([]byte,
 // GetSecretVersionState gets the state of the secret version specified by project, id, version.
 // Returns state if successful, otherwise error.
 func (cl *MockClient) GetSecretVersionState(project, id, version string) (secretmanagerpb.SecretVersion_State, error) {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return 0, err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	return cl.Secrets[project][id].Versions[version].State, nil
@@ -178,13 +178,9 @@ func (cl *MockClient) GetSecretVersionState(project, id, version string) (secret
 // EnableSecretVersion changes the state of secret version to ENABLED
 // returns nil if successful, otherwise error.
 func (cl *MockClient) EnableSecretVersion(project, id, version string) error {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_ENABLED
@@ -195,13 +191,9 @@ func (cl *MockClient) EnableSecretVersion(project, id, version string) error {
 // DisableSecretVersion changes the state of secret version to DISABLED
 // returns nil if successful, otherwise error.
 func (cl *MockClient) DisableSecretVersion(project, id, version string) error {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_DISABLED
@@ -212,13 +204,9 @@ func (cl *MockClient) DisableSecretVersion(project, id, version string) error {
 // DestroySecretVersion changes the state of secret version to DESTROYED
 // returns nil if successful, otherwise error.
 func (cl *MockClient) DestroySecretVersion(project, id, version string) error {
-	err := cl.ValidateSecretVersion(project, id, version)
+	version, err := cl.ValidateAndConvertVersion(project, id, version)
 	if err != nil {
 		return err
-	}
-
-	if version == "latest" {
-		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
 	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_DESTROYED

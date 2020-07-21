@@ -22,11 +22,12 @@ import (
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/config"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/rotator"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/svckey"
+	"time"
 )
 
 type options struct {
 	configPath string
-	kubeconfig string
+	period     int64
 }
 
 func (o *options) Validate() error {
@@ -39,7 +40,7 @@ func (o *options) Validate() error {
 func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
-	flag.StringVar(&o.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
+	flag.Int64Var(&o.period, "period", 1000, "Period in milliseconds.")
 	flag.Parse()
 	return o
 }
@@ -84,7 +85,9 @@ func main() {
 		Client:       secretManagerClient,
 		Agent:        configAgent,
 		Provisioners: provisioners,
+		Period:       time.Duration(o.period) * time.Millisecond,
 	}
 
-	rotator.RunOnce()
+	stopChan := make(chan struct{})
+	rotator.Start(stopChan)
 }

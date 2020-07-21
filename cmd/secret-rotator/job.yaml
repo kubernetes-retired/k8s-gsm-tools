@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: secret-rotator
+spec:
+  template:
+    spec:
+      serviceAccountName: secret-sync-controller
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      containers:
+      - name: rot-container
+        image: gcr.io/k8s-jkns-gke-soak/secret-rotator:latest
+        command: 
+        - /app
+        args:
+        - --config-path=/tmp/config/rotConfig 
+        - --period=1000
+        - --v=2
+        volumeMounts:
+        - name: config-volume
+          readOnly: true
+          mountPath: /tmp/config
+      restartPolicy: Never

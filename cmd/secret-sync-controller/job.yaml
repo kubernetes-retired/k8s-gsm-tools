@@ -12,14 +12,13 @@ spec:
           name: config
       containers:
       - name: sync-container
-        image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
+        image: gcr.io/k8s-staging-k8s-gsm-tools/secret-sync-controller:latest
         command: 
-        - sh
+        - /app
         args:
-        - -c
-        - |
-          go build -o secret-sync-controller cmd/secret-sync-controller/main.go
-          ./secret-sync-controller --config-path /tmp/config/syncConfig --period 1000
+        - --config-path=/tmp/config/syncConfig 
+        - --period=1000
+        - --v=2
         volumeMounts:
         - name: config-volume
           readOnly: true

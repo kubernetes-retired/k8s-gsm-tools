@@ -1,0 +1,8 @@
+specs:
+- source: 
+    project: k8s-jkns-gke-soak
+    secret: secret-1
+  destination:
+    namespace: ns-a
+    secret: secret-a
+    key: key-a
