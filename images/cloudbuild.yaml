@@ -34,7 +34,7 @@ substitutions:
   # a branch like 'master' or 'release-0.2', or a tag like 'v0.2'.
   _PULL_BASE_REF: "master"
 images:
-  - 'gcr.io/$PROJECT_ID/controller:$_GIT_TAG'
-  - 'gcr.io/$PROJECT_ID/controller:latest'
   - 'gcr.io/$PROJECT_ID/demo:$_GIT_TAG'
   - 'gcr.io/$PROJECT_ID/demo:latest'
+  - 'gcr.io/$PROJECT_ID/secret-sync-controller:$_GIT_TAG'
+  - 'gcr.io/$PROJECT_ID/secret-sync-controller:latest'
