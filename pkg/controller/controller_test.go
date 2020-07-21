@@ -38,7 +38,7 @@ var testOpts testOptions
 
 func TestMain(m *testing.M) {
 	flag.BoolVar(&testOpts.e2eClient, "e2e-client", false, "Test with API or mock client.")
-	flag.StringVar(&testOpts.gsmProject, "gsm-project", "project-1", "Secret MAnager prject for e2e testing.")
+	flag.StringVar(&testOpts.gsmProject, "gsm-project", "project-1", "Secret Manager prject for e2e testing.")
 	flag.StringVar(&testOpts.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.Parse()
 
