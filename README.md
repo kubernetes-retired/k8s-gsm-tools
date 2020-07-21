@@ -132,3 +132,17 @@ kubectl apply -f service-account/role.yaml
 
 			kubectl apply -f test-controller-job.yaml
 
+
+## Building / pushing images
+
+To build images locally:
+
+    make images
+
+If you have access to a GCP project that has Google Cloud Build enabled:
+
+    gcloud builds submit --config=./images/cloudbuild.yaml .
+
+This file can be used by a [prow image-pushing job][image-pushing-readme] to push to the project's repository
+
+[image-pushing-readme]: https://github.com/kubernetes/test-infra/blob/master/config/jobs/image-pushing/README.md
