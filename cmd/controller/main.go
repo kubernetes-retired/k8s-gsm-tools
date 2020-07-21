@@ -85,7 +85,7 @@ func main() {
 		ResyncPeriod: time.Duration(o.resyncPeriod) * time.Millisecond,
 	}
 
-	var stopChan <-chan struct{}
+	stopChan := make(chan struct{})
 	controller.Start(stopChan)
 
 }

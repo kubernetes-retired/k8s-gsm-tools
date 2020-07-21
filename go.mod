@@ -11,6 +11,7 @@ replace (
 
 require (
 	cloud.google.com/go v0.60.0
+	gonum.org/v1/plot v0.7.0
 	google.golang.org/genproto v0.0.0-20200709005830-7a2ca40e9dc3
 	google.golang.org/grpc v1.30.0
 	gopkg.in/yaml.v2 v2.3.0

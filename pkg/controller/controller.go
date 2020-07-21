@@ -26,7 +26,6 @@ type SecretSyncController struct {
 	Agent        *config.Agent
 	RunOnce      bool
 	ResyncPeriod time.Duration
-	// TODO: in-struct looger?
 }
 
 func (c *SecretSyncController) Start(stopChan <-chan struct{}) error {
@@ -42,7 +41,7 @@ func (c *SecretSyncController) Start(stopChan <-chan struct{}) error {
 	for {
 		select {
 		case <-stopChan:
-			klog.Info("Stop signal received. Quitting...")
+			klog.V(2).Info("Stop signal received. Quitting...")
 			return nil
 		case <-runChan:
 			c.SyncAll()
@@ -64,7 +63,7 @@ func (c *SecretSyncController) SyncAll() {
 			klog.Errorf("Secret sync failed for %s: %s", spec, err)
 		}
 		if updated {
-			klog.Infof("Secret %s synced from %s", spec.Destination, spec.Source)
+			klog.V(2).Infof("Secret %s synced from %s", spec.Destination, spec.Source)
 		}
 	}
 }

@@ -101,11 +101,20 @@ kubectl apply -f service-account/role.yaml
 	
 	- run controller in continuous mode
 	
-			./secret-sync-controller --config-path config.yaml --period 1000
+			./secret-sync-controller --config-path config.yaml --period 1000 
 	
 	- run controller in one-shot mode
 
 			./secret-sync-controller --config-path config.yaml --period 1000 --run-once
+
+	- run controller demo
+
+			cd demo
+			go build
+			# to mock mounted ConfigMap 
+			mkdir ..data
+			./demo --config-path config.yaml --resync-period 1000 --poll-period 500 --duration 70000 --switch-period 10000 --gsm-project=k8s-jkns-gke-soak
+			
 	
 - In-Cluster
 	- build and push docker image
@@ -114,7 +123,7 @@ kubectl apply -f service-account/role.yaml
 			docker push gcr.io/k8s-jkns-gke-soak/secret-sync-controller
 
 	- create ConfigMap `syncConfig` and mount it to `/tmp/config`.
-	
+
 	- run controller in continuous mode as job
 			
 			kubectl apply -f controller-job.yaml

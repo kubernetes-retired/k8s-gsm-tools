@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: secret-sync-controller-demo
+spec:
+  template:
+    spec:
+      serviceAccountName: secret-sync-controller
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      containers:
+      - name: sync-container
+        image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
+        command: ["sh", "-c", "cd demo && go build && ./demo --config-path config.yaml --resync-period 1000 --poll-period 500 --duration 70000 --switch-period 10000 --gsm-project=k8s-jkns-gke-soak"]
+        volumeMounts:
+        - name: config-volume
+          readOnly: true
+          mountPath: /tmp/config
+      restartPolicy: Never
