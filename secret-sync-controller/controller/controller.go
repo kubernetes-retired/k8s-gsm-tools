@@ -15,9 +15,9 @@ package controller
 
 import (
 	"bytes"
-	"github.com/b01901143/secret-sync-controller/pkg/client"
-	"github.com/b01901143/secret-sync-controller/pkg/config"
 	"k8s.io/klog"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
 	"time"
 )
 
@@ -56,7 +56,7 @@ func (c *SecretSyncController) Start(stopChan <-chan struct{}) error {
 // Pops error message for any secret pair that it failed to sync or access
 func (c *SecretSyncController) SyncAll() {
 	// iterate on copy of Specs instead of index,
-	// so that the update in .Agent.config will only be observed outside of the loop SyncAll()
+	// so that the update in Agent.config will only be observed outside of the loop SyncAll()
 	for _, spec := range c.Agent.Config().Specs {
 		updated, err := c.Sync(spec)
 		if err != nil {

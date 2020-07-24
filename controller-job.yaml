@@ -13,7 +13,13 @@ spec:
       containers:
       - name: sync-container
         image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
-        command: ["sh", "-c", "go build -o controller-cmd cmd/controller/main.go && ./controller-cmd --config-path /tmp/config/syncConfig --period 1000"]
+        command: 
+        - sh
+        args:
+        - -c
+        - |
+          go build -o secret-sync-controller cmd/secret-sync-controller/main.go
+          ./secret-sync-controller --config-path /tmp/config/syncConfig --period 1000
         volumeMounts:
         - name: config-volume
           readOnly: true

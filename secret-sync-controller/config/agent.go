@@ -13,7 +13,8 @@ limitations under the License.
 
 package config
 
-// Package config defines configuration and sync-pair structs
+// This is a config agent for SecretSyncConfig.
+// It watches the mounted configMap, and updates the SecretSyncConfig accordingly.
 
 import (
 	"context"

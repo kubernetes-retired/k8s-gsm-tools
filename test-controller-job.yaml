@@ -13,7 +13,14 @@ spec:
       containers:
       - name: sync-container
         image: gcr.io/k8s-jkns-gke-soak/secret-sync-controller:latest
-        command: ["sh", "-c", "go test ./... && cd pkg/controller && go test -v --e2e-client --gsm-project=k8s-jkns-gke-soak"]
+        command: 
+        - sh
+        args:
+        - -c
+        - |
+          go test ./...
+          cd secret-sync-controller/controller
+          go test -v --e2e-client --gsm-project=k8s-jkns-gke-soak
         volumeMounts:
         - name: config-volume
           readOnly: true

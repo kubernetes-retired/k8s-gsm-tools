@@ -13,8 +13,8 @@ limitations under the License.
 
 package client
 
-// Package client implements client creation utilities.
-// Creates K8s clientset and Secret Manager client.
+// Package client implements creation and utilities
+// for K8s clientset and Secret Manager client.
 
 import (
 	"context"
@@ -183,9 +183,9 @@ func (cl *Client) UpsertKubernetesSecret(namespace, id, key string, data []byte)
 	return nil
 }
 
-// UpsertSecretManagerSecret updates the value of the Secret Manager secret specified by project, id.
+// UpsertSecretManagerSecret adds a new version to the Secret Manager secret specified by project, id.
 // It inserts a new secret if id doesn't already exist.
-// Returns nil if successful, error otherwise
+// If successful the latest version will have 'data' as its secret value, otherwise return error
 func (cl *Client) UpsertSecretManagerSecret(project, id string, data []byte) error {
 	parent := "projects/" + project
 	// Check if the secret exists

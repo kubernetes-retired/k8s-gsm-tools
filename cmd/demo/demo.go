@@ -23,14 +23,14 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
-	"github.com/b01901143/secret-sync-controller/pkg/client"
-	"github.com/b01901143/secret-sync-controller/pkg/config"
-	"github.com/b01901143/secret-sync-controller/pkg/controller"
-	"github.com/b01901143/secret-sync-controller/tests"
 	"k8s.io/klog"
+	"path/filepath"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/client"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/config"
+	"sigs.k8s.io/k8s-gsm-tools/secret-sync-controller/controller"
+	"sigs.k8s.io/k8s-gsm-tools/tests"
 	"strconv"
 	"text/template"
 	"time"
@@ -42,6 +42,7 @@ import (
 )
 
 type options struct {
+	outputPath   string
 	configPath   string
 	kubeconfig   string
 	resyncPeriod int64
@@ -53,15 +54,16 @@ type options struct {
 
 func (o *options) Validate() error {
 	if o.configPath == "" {
-		return errors.New("required flag --config-path was unset")
+		return fmt.Errorf("required flag --config-path was unset")
 	}
 	return nil
 }
 
 func gatherOptions() options {
 	o := options{}
+	flag.StringVar(&o.outputPath, "output-path", ".", "Desired output path for the result plots.")
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
-	flag.StringVar(&o.gsmProject, "gsm-project", "project-1", "Secret Manager prject for demo.")
+	flag.StringVar(&o.gsmProject, "gsm-project", "project-1", "Secret Manager project for demo.")
 	flag.StringVar(&o.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.Int64Var(&o.resyncPeriod, "resync-period", 1000, "Resync period in milliseconds.")
 	flag.Int64Var(&o.pollPeriod, "poll-period", 500, "Polling period in milliseconds.")
@@ -74,8 +76,8 @@ func gatherOptions() options {
 func main() {
 	klog.InitFlags(nil)
 	flag.Set("v", "1")
-	o := gatherOptions()
 
+	o := gatherOptions()
 	err := o.Validate()
 	if err != nil {
 		klog.Errorf("Invalid options: %s", err)
@@ -164,7 +166,7 @@ func main() {
 	stopLogger <- struct{}{}
 	stopController <- struct{}{}
 
-	logger.ShowResults()
+	logger.ShowResults(o.outputPath)
 }
 
 type SecretSyncLogger struct {
@@ -234,11 +236,13 @@ func (l *SecretSyncLogger) Start(stopChan <-chan struct{}) error {
 		case <-switchChan:
 			for _, spec := range l.Agent.Config().Specs {
 				prev, _ := l.Client.GetSecretManagerSecretValue(spec.Source.Project, spec.Source.Secret)
-				next, _ := strconv.Atoi(string(prev))
 
 				// secret value swaps between 0 and 1 every SwitchPeriod
-				next = 1 - next
-				l.Client.UpsertSecretManagerSecret(spec.Source.Project, spec.Source.Secret, []byte(strconv.Itoa(next)))
+				next := "0"
+				if next == string(prev) {
+					next = "1"
+				}
+				l.Client.UpsertSecretManagerSecret(spec.Source.Project, spec.Source.Secret, []byte(next))
 			}
 		}
 	}
@@ -328,10 +332,11 @@ func (d *logData) Plot(name string) {
 }
 
 // ShowResults shows the timelines in text form for all secret sync pairs.
-// It also outputs a plot "timeline_i" for the ith pair.
-func (l *SecretSyncLogger) ShowResults() {
+// It also outputs a plot "timeline_i" for the ith pair under outputPath.
+func (l *SecretSyncLogger) ShowResults(outputPath string) {
 	for i, spec := range l.Agent.Config().Specs {
 		name := fmt.Sprintf("timeline_%d.png", i)
+		name = filepath.Join(outputPath, name)
 		d := l.LogData[spec.String()]
 		d.Plot(name)
 
