@@ -1,4 +1,5 @@
-# secret_sync
+# k8s-gsm-tools
+
 Synchronizing between Google Cloud Secret Manager secrets and Kubernetes secrets.
 
 ## Current Functions
