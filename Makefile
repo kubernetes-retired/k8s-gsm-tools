@@ -17,6 +17,11 @@ WHAT ?= ./...
 DOCKER_REPO ?= gcr.io/k8s-staging-k8s-gsm-tools
 DOCKER_TAG ?= v$(shell date -u '+%Y%m%d')-$(shell git describe --tags --always --dirty)
 
+OUTPUT_DIR ?= _output
+BIN_DIR := bin
+OUTPUT_BIN_DIR := $(OUTPUT_DIR)/$(BIN_DIR)
+
+
 GCP_PROJECT ?= k8s-jkns-gke-soak
 
 CMDS = $(notdir $(shell find ./cmd/ -maxdepth 1 -type d | sort))
@@ -26,7 +31,8 @@ all: build
 
 .PHONY: $(CMDS)
 $(CMDS):
-	go build ./cmd/$@
+	mkdir -p "$(OUTPUT_BIN_DIR)"
+	go build -o "$(OUTPUT_BIN_DIR)" ./cmd/$@
 
 .PHONY: build
 build:
