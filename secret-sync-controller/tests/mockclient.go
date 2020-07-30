@@ -89,9 +89,6 @@ func (cl *MockClient) UpsertKubernetesSecret(namespace, id, key string, data []b
 
 	return nil
 }
-func (cl *MockClient) UpsertKubernetesConfigMap(namespace, name, key, data string) error {
-	return nil
-}
 func (cl *MockClient) CreateKubernetesSecret(namespace, id string) error {
 	err := cl.ValidateKubernetesNamespace(namespace)
 	if err != nil {
@@ -116,7 +113,7 @@ func (cl *MockClient) GetSecretManagerSecretValue(project, id string) ([]byte, e
 func (cl *MockClient) UpsertSecretManagerSecret(project, id string, data []byte) error {
 	_, ok := cl.SecretManagerSecret[project]
 	if !ok {
-		return status.Error(codes.NotFound, fmt.Sprintf("Secret [projects/%s] not found.", project))
+		return status.Error(codes.NotFound, fmt.Sprintf("Project [projects/%s] not found.", project))
 	}
 	cl.SecretManagerSecret[project][id] = data
 	return nil
