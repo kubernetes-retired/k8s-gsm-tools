@@ -16,8 +16,12 @@ package svckey
 // package svckey implements the provisioning and deactivation of gcloud service account keys
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
+	"google.golang.org/api/iam/v1"
 	"k8s.io/klog"
+	"strings"
 )
 
 type ServiceAccountKeySpec struct {
@@ -34,7 +38,28 @@ func (svc ServiceAccountKeySpec) Type() string {
 	return "serviceAccountKey"
 }
 
-type Provisioner struct{}
+// ServiceAccountKeySpec.Labels() is used to obtain the labels needed for the provisioner of the ServiceAccountKey
+func (svc ServiceAccountKeySpec) Labels() map[string]string {
+	return map[string]string{
+		"project":         svc.Project,
+		"service-account": svc.ServiceAccount,
+	}
+}
+
+type Provisioner struct {
+	Service *iam.Service
+}
+
+func NewProvisioner() (*Provisioner, error) {
+	ctx := context.Background()
+
+	service, err := iam.NewService(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Provisioner{service}, nil
+}
 
 // TODO: add project and service-account fields to metadata when registered
 
@@ -42,17 +67,37 @@ type Provisioner struct{}
 // returns the key-id and private-key data of the created key if successful,
 // otherwise returns error
 func (p *Provisioner) CreateNew(labels map[string]string) (string, []byte, error) {
-	// TODO: provision new service account key
-	name := fmt.Sprintf("projects/%s/serviceAccounts/%s", labels["project"], labels["service-account"])
-	klog.V(2).Infof("Provision a new secret of %s", name)
-	return "new_key_id", []byte("new_private_key"), nil
+	name := fmt.Sprintf("projects/%s/serviceAccounts/%s@%s.iam.gserviceaccount.com", labels["project"], labels["service-account"], labels["project"])
+	request := &iam.CreateServiceAccountKeyRequest{}
+
+	resp, err := p.Service.Projects.ServiceAccounts.Keys.Create(name, request).Context(context.TODO()).Do()
+	if err != nil {
+		return "", nil, err
+	}
+
+	decodedPrivateKeyData, _ := base64.StdEncoding.DecodeString(resp.PrivateKeyData)
+
+	splits := strings.Split(resp.Name, "/")
+	key := splits[len(splits)-1]
+
+	klog.V(2).Infof("Provisioned a new service account key %s/keys/%s", name, key)
+
+	return key, decodedPrivateKeyData, nil
 }
 
 // Deactivate deletes an existing service account key specified by labels and version,
 // returns nil if successful, otherwise error
 func (p *Provisioner) Deactivate(labels map[string]string, version string) error {
-	// TODO: delete old service account key
-	name := fmt.Sprintf("projects/%s/serviceAccounts/%s", labels["project"], labels["service-account"])
-	klog.V(2).Infof("Deactivate ver. %s of %s", version, name)
+	// keys in format of "v%d" indicate that they are (version: id) pairs attached by the rotator
+	// the reason for the prefix "v" is that Secret Manager labels need to begin with a lowwer case letter
+	name := fmt.Sprintf("projects/%s/serviceAccounts/%s@%s.iam.gserviceaccount.com/keys/%s", labels["project"], labels["service-account"], labels["project"], labels["v"+version])
+
+	_, err := p.Service.Projects.ServiceAccounts.Keys.Delete(name).Do()
+	if err != nil {
+		return fmt.Errorf("Projects.ServiceAccounts.Keys.Delete: %v", err)
+	}
+
+	klog.V(2).Infof("Deactivated ver. %s: %s ", version, name)
+
 	return nil
 }

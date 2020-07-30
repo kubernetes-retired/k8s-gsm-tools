@@ -17,8 +17,7 @@ package tests
 // Should be used with caution. Only for testing purpose.
 
 import (
-	"fmt"
-	"k8s.io/klog"
+	"math/rand"
 )
 
 type MockSvcProvisioner struct {
@@ -26,23 +25,33 @@ type MockSvcProvisioner struct {
 	NewSecretValue []byte
 }
 
-// TODO: add project and service-account fields to metadata when registered
+var alphaNum = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ=")
+
+// randString generates a random string of size n consisting of alphanumeric runes
+// if lower is set to true, it only samples from the first 36 runes (numbers and lowercase letters)
+func randString(n int, lower bool) string {
+	m := len(alphaNum)
+	if lower {
+		m = 36
+	}
+
+	s := make([]rune, n)
+	for i := range s {
+		s[i] = alphaNum[rand.Intn(m)]
+	}
+
+	return string(s)
+}
 
 // CreateNew provisions a new service account key,
 // returns the key-id and private-key data of the created key if successful,
 // otherwise returns error
 func (p *MockSvcProvisioner) CreateNew(labels map[string]string) (string, []byte, error) {
-	// TODO: provision new service account key
-	name := fmt.Sprintf("projects/%s/serviceAccounts/%s", labels["project"], labels["service-account"])
-	klog.V(2).Infof("Provision a new secret of %s", name)
-	return p.NewSecretID, p.NewSecretValue, nil
+	return randString(40, true), []byte(randString(3096, false)), nil
 }
 
 // Deactivate deletes an existing service account key specified by labels and version,
 // returns nil if successful, otherwise error
 func (p *MockSvcProvisioner) Deactivate(labels map[string]string, version string) error {
-	// TODO: delete old service account key
-	name := fmt.Sprintf("projects/%s/serviceAccounts/%s", labels["project"], labels["service-account"])
-	klog.V(2).Infof("Deactivate ver. %s of %s", version, name)
 	return nil
 }

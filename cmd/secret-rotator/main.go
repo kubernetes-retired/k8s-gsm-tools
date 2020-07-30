@@ -72,7 +72,13 @@ func main() {
 
 	// prepare provisioners for all supported types of secrets
 	provisioners := map[string]rotator.SecretProvisioner{}
-	provisioners[svckey.ServiceAccountKeySpec{}.Type()] = &svckey.Provisioner{}
+
+	newSvcProvisioner, err := svckey.NewProvisioner()
+	if err != nil {
+		klog.Errorf("Fail to create service account key provisoner: %s", err)
+	}
+
+	provisioners[svckey.ServiceAccountKeySpec{}.Type()] = newSvcProvisioner
 
 	rotator := &rotator.SecretRotator{
 		Client:       secretManagerClient,

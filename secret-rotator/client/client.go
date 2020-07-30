@@ -17,7 +17,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/genproto/protobuf/field_mask"
 	"google.golang.org/grpc/codes"
@@ -48,8 +47,10 @@ type Interface interface {
 	GetCreateTime(project, id, version string) (time.Time, error)
 	GetSecretLabels(project, id string) (map[string]string, error)
 	GetSecretVersionData(project, id, version string) ([]byte, error)
-	GetSecretVersionState(project, id, version string) (int32, error)
-	ChangeSecretVersionState(project, id, version string, state int32) error
+	GetSecretVersionState(project, id, version string) (secretmanagerpb.SecretVersion_State, error)
+	EnableSecretVersion(project, id, version string) error
+	DisableSecretVersion(project, id, version string) error
+	DestroySecretVersion(project, id, version string) error
 	UpsertSecretLabel(project, id, key, val string) error
 	DeleteSecretLabel(project, id, key string) error
 }
@@ -189,7 +190,7 @@ func (cl *Client) GetSecretVersionData(project, id, version string) ([]byte, err
 
 // GetSecretVersionState gets the state of the secret version specified by project, id, version.
 // Returns state if successful, otherwise error.
-func (cl *Client) GetSecretVersionState(project, id, version string) (int32, error) {
+func (cl *Client) GetSecretVersionState(project, id, version string) (secretmanagerpb.SecretVersion_State, error) {
 	ctx := context.TODO()
 	name := "projects/" + project + "/secrets/" + id + "/versions/" + version
 
@@ -198,37 +199,49 @@ func (cl *Client) GetSecretVersionState(project, id, version string) (int32, err
 	}
 	getResult, err := cl.GetSecretVersion(ctx, getReq)
 
-	return int32(getResult.State), err
+	return getResult.State, err
 }
 
-// ChangeSecretVersionState changes the state of secret version
+// EnableSecretVersion changes the state of secret version to ENABLED
 // returns nil if successful, otherwise error.
-func (cl *Client) ChangeSecretVersionState(project, id, version string, state int32) error {
+func (cl *Client) EnableSecretVersion(project, id, version string) error {
 	ctx := context.TODO()
 	name := "projects/" + project + "/secrets/" + id + "/versions/" + version
 
-	switch state {
-	case 1: // SecretVersion_ENABLED
-		req := &secretmanagerpb.EnableSecretVersionRequest{
-			Name: name,
-		}
-		_, err := cl.EnableSecretVersion(ctx, req)
-		return err
-	case 2: // SecretVersion_DISABLED:
-		req := &secretmanagerpb.DisableSecretVersionRequest{
-			Name: name,
-		}
-		_, err := cl.DisableSecretVersion(ctx, req)
-		return err
-	case 3: // SecretVersion_DESTROYED
-		req := &secretmanagerpb.DestroySecretVersionRequest{
-			Name: name,
-		}
-		_, err := cl.DestroySecretVersion(ctx, req)
-		return err
-	default:
-		return fmt.Errorf("Invalid state: %v", state)
+	req := &secretmanagerpb.EnableSecretVersionRequest{
+		Name: name,
 	}
+	_, err := cl.Client.EnableSecretVersion(ctx, req)
+
+	return err
+}
+
+// DisableSecretVersion changes the state of secret version to DISABLED
+// returns nil if successful, otherwise error.
+func (cl *Client) DisableSecretVersion(project, id, version string) error {
+	ctx := context.TODO()
+	name := "projects/" + project + "/secrets/" + id + "/versions/" + version
+
+	req := &secretmanagerpb.DisableSecretVersionRequest{
+		Name: name,
+	}
+	_, err := cl.Client.DisableSecretVersion(ctx, req)
+
+	return err
+}
+
+// DestroySecretVersion changes the state of secret version to DESTROYED
+// returns nil if successful, otherwise error.
+func (cl *Client) DestroySecretVersion(project, id, version string) error {
+	ctx := context.TODO()
+	name := "projects/" + project + "/secrets/" + id + "/versions/" + version
+
+	req := &secretmanagerpb.DestroySecretVersionRequest{
+		Name: name,
+	}
+	_, err := cl.Client.DestroySecretVersion(ctx, req)
+
+	return err
 }
 
 // UpsertSecretLabel updates or inserts the key-value pair
@@ -241,6 +254,10 @@ func (cl *Client) UpsertSecretLabel(project, id, key, val string) error {
 	labels, err := cl.GetSecretLabels(project, id)
 	if err != nil {
 		return err
+	}
+
+	if labels == nil {
+		labels = make(map[string]string)
 	}
 
 	// update or insert new label

@@ -15,6 +15,7 @@ package rotator
 
 import (
 	"bytes"
+	"math/rand"
 	"reflect"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/config"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/svckey"
@@ -36,15 +37,9 @@ var str2Duration = func(str string) time.Duration {
 
 func TestRefresh(t *testing.T) {
 
-	newSecretId := "new-key-id"
-	newSecretValue := []byte("new-service-account-key")
-
 	// prepare provisioners for all supported types of secrets
 	provisioners := map[string]SecretProvisioner{}
-	provisioners[svckey.ServiceAccountKeySpec{}.Type()] = &tests.MockSvcProvisioner{
-		NewSecretID:    newSecretId,
-		NewSecretValue: newSecretValue,
-	}
+	provisioners[svckey.ServiceAccountKeySpec{}.Type()] = &tests.MockSvcProvisioner{}
 
 	rotator := &SecretRotator{
 		Provisioners: provisioners,
@@ -57,6 +52,7 @@ func TestRefresh(t *testing.T) {
 		now            time.Time
 		refresh        bool
 		expectedLabels map[string]string
+		expectVerNum   string
 		expectErr      bool
 	}{
 		{
@@ -70,7 +66,7 @@ func TestRefresh(t *testing.T) {
 								"1": &tests.Version{
 									CreateTime: str2Time("2000-01-01T00:00:00+00:00"),
 									Data:       []byte("secret-data-1"),
-									State:      1, //SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 							},
 							Labels: map[string]string{
@@ -107,6 +103,8 @@ func TestRefresh(t *testing.T) {
 				"v1":              "key_id-1",
 			},
 
+			expectVerNum: "1",
+
 			expectErr: false,
 		},
 		{
@@ -120,7 +118,7 @@ func TestRefresh(t *testing.T) {
 								"1": &tests.Version{
 									CreateTime: str2Time("2000-01-01T00:00:00+00:00"),
 									Data:       []byte("secret-data-1"),
-									State:      1, //SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 							},
 							Labels: map[string]string{
@@ -155,13 +153,48 @@ func TestRefresh(t *testing.T) {
 				"project":         "project-1",
 				"service-account": "service-foo",
 				"v1":              "key_id-1",
-				"v2":              newSecretId,
 			},
+
+			expectVerNum: "2",
 
 			expectErr: false,
 		},
 		{
-			name: "Non-existing rotated secret. Should return error.",
+			name: "Non-existing secret. Should upsert secret version.",
+
+			client: &tests.MockClient{
+				Secrets: map[string]map[string]*tests.Secret{
+					"project-1": map[string]*tests.Secret{
+						"secret-1": &tests.Secret{
+							Versions: map[string]*tests.Version{},
+							Labels:   map[string]string{},
+						},
+					},
+				},
+			},
+
+			spec: config.RotatedSecretSpec{
+				Project: "project-1",
+				Secret:  "missed",
+				Type: config.RotatedSecretType{
+					ServiceAccountKey: &svckey.ServiceAccountKeySpec{
+						Project:        "project-1",
+						ServiceAccount: "service-foo",
+					},
+				},
+				Refresh: config.RefreshStrategy{
+					Interval: str2Duration("15h"),
+				},
+			},
+
+			now: str2Time("2000-01-01T16:00:00+00:00"),
+
+			expectVerNum: "1",
+
+			expectErr: true,
+		},
+		{
+			name: "Non-existing project. Should return error.",
 
 			client: &tests.MockClient{
 				Secrets: map[string]map[string]*tests.Secret{
@@ -171,7 +204,7 @@ func TestRefresh(t *testing.T) {
 								"1": &tests.Version{
 									CreateTime: str2Time("2000-01-01T00:00:00+00:00"),
 									Data:       []byte("secret-data-1"),
-									State:      1, //SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 							},
 							Labels: map[string]string{
@@ -208,6 +241,9 @@ func TestRefresh(t *testing.T) {
 		rotator.Client = tc.client
 
 		t.Run(testname, func(t *testing.T) {
+			seed := time.Now().UnixNano()
+			rand.Seed(seed)
+
 			refreshed, err := rotator.Refresh(tc.spec, tc.now)
 			if tc.refresh && !refreshed {
 				t.Errorf("Expected %s to be refreshed.", tc.spec)
@@ -226,6 +262,13 @@ func TestRefresh(t *testing.T) {
 			}
 
 			if refreshed {
+				// obtain provisioned data with the same seed
+				rand.Seed(seed)
+				newSecretKey, newSecretValue, _ := rotator.Provisioners[tc.spec.Type.Type()].CreateNew(nil)
+
+				// insert label for the latest key
+				tc.expectedLabels["v"+tc.expectVerNum] = newSecretKey
+
 				value, err := rotator.Client.GetSecretVersionData(tc.spec.Project, tc.spec.Secret, "latest")
 				if err != nil {
 					t.Error(err)
@@ -266,7 +309,6 @@ func TestDeactivate(t *testing.T) {
 		now            time.Time
 		deactiveVers   []string
 		expectedLabels map[string]string
-		expectErr      bool
 	}{
 		{
 			name: "v3 is within gracePeriod; v1 and v2 are out of gracePeriod. Should deactivate only v1 and v2.",
@@ -279,22 +321,22 @@ func TestDeactivate(t *testing.T) {
 								"1": &tests.Version{
 									CreateTime: str2Time("2000-01-01T00:00:00+00:00"),
 									Data:       []byte("secret-data-1"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 								"2": &tests.Version{
 									CreateTime: str2Time("2000-01-01T07:00:00+00:00"),
 									Data:       []byte("secret-data-2"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 								"3": &tests.Version{
 									CreateTime: str2Time("2000-01-01T14:00:00+00:00"),
 									Data:       []byte("secret-data-3"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 								"4": &tests.Version{
 									CreateTime: str2Time("2000-01-01T21:00:00+00:00"),
 									Data:       []byte("secret-data-4"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 							},
 							Labels: map[string]string{
@@ -332,11 +374,9 @@ func TestDeactivate(t *testing.T) {
 				"v3":              "key_id-3",
 				"v4":              "key_id-4",
 			},
-
-			expectErr: false,
 		},
 		{
-			name: "GAM has a label of v3 while version 3 does not exist. Should return error.",
+			name: "GSM has a label of v3 while version 3 does not exist. Should pop error for v3 and still deactivate v1.",
 
 			client: &tests.MockClient{
 				Secrets: map[string]map[string]*tests.Secret{
@@ -346,12 +386,12 @@ func TestDeactivate(t *testing.T) {
 								"1": &tests.Version{
 									CreateTime: str2Time("2000-01-01T00:00:00+00:00"),
 									Data:       []byte("secret-data-1"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 								"2": &tests.Version{
 									CreateTime: str2Time("2000-01-01T07:00:00+00:00"),
 									Data:       []byte("secret-data-2"),
-									State:      1, // SecretVersion_ENABLED
+									State:      secretmanagerpb.SecretVersion_ENABLED,
 								},
 							},
 							Labels: map[string]string{
@@ -380,7 +420,14 @@ func TestDeactivate(t *testing.T) {
 
 			now: str2Time("2000-01-01T22:00:00+00:00"),
 
-			expectErr: true,
+			deactiveVers: []string{"1"},
+
+			expectedLabels: map[string]string{
+				"project":         "project-1",
+				"service-account": "service-foo",
+				"v2":              "key_id-2",
+				"v3":              "_",
+			},
 		},
 	}
 	for _, tc := range testcases {
@@ -388,17 +435,7 @@ func TestDeactivate(t *testing.T) {
 		rotator.Client = tc.client
 
 		t.Run(testname, func(t *testing.T) {
-			err := rotator.Deactivate(tc.spec, tc.now)
-
-			if tc.expectErr && err == nil {
-				t.Errorf("Failed to receive expected error.")
-			} else if !tc.expectErr && err != nil {
-				t.Errorf("Unexpected error: %s", err)
-			}
-
-			if tc.expectErr {
-				return
-			}
+			rotator.Deactivate(tc.spec, tc.now)
 
 			for _, version := range tc.deactiveVers {
 				state, err := rotator.Client.GetSecretVersionState(tc.spec.Project, tc.spec.Secret, version)
@@ -406,8 +443,8 @@ func TestDeactivate(t *testing.T) {
 					t.Error(err)
 				}
 
-				if state != 2 { // SecretVersion_DISABLED
-					t.Errorf("Fail to validate state of %s/versions/%s. Expected %s but got %s.", tc.spec, version, secretmanagerpb.SecretVersion_State(2), secretmanagerpb.SecretVersion_State(state))
+				if state != secretmanagerpb.SecretVersion_DESTROYED {
+					t.Errorf("Fail to validate state of %s/versions/%s. Expected %s but got %s.", tc.spec, version, secretmanagerpb.SecretVersion_DESTROYED, state)
 				}
 			}
 

@@ -39,10 +39,15 @@ type SecretRotator struct {
 // RunOnce checks all rotated secrets in Agent.Config().Specs
 // Pops error message for any failure in refreshing or deactivating each secret.
 func (r *SecretRotator) RunOnce() {
-	// iterate on copy of Specs instead of index,
-	// so that the update in Agent.config will only be observed outside of the loop
+	// iterating on rotatedSecret instead of index so that the config stays consistent within each iteration,
+	// even if a config update occurs in the middle of the loop.
 	for _, rotatedSecret := range r.Agent.Config().Specs {
-		_, err := r.Refresh(rotatedSecret, time.Now())
+		err := r.UpsertLabels(rotatedSecret)
+		if err != nil {
+			klog.Error(err)
+		}
+
+		_, err = r.Refresh(rotatedSecret, time.Now())
 		if err != nil {
 			klog.Error(err)
 		}
@@ -54,16 +59,87 @@ func (r *SecretRotator) RunOnce() {
 	}
 }
 
-// Refresh checks whether the secret needs to be refreshed according to 'now' and 'rotatedSecret.Refresh'.
-// If it does, Refresh provisions a new secret and updates the Secret Manager secret.
+// UpsertLabels updates or inserts labels needed by the provisioner specified by rotatedSecret
+// Returns error if fails.
+func (r *SecretRotator) UpsertLabels(rotatedSecret config.RotatedSecretSpec) error {
+	_, err := r.Client.GetSecretLabels(rotatedSecret.Project, rotatedSecret.Secret)
+	if err != nil {
+		return err
+	}
+
+	// attach the labels needed for the provisioner
+	for key, val := range rotatedSecret.Type.Labels() {
+		err = r.Client.UpsertSecretLabel(rotatedSecret.Project, rotatedSecret.Secret, key, val)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Refresh checks if the secret needs to be refreshed, and if so
+// provisions a new secret and updates the Secret Manager secret.
 // Returns true if the secret is refreshed.
 func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time.Time) (bool, error) {
-	createTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, "latest")
+	shouldRefresh, err := r.ShouldRefresh(rotatedSecret, now)
 	if err != nil {
 		return false, err
 	}
 
+	if !shouldRefresh {
+		return false, nil
+	}
+
 	labels, err := r.Client.GetSecretLabels(rotatedSecret.Project, rotatedSecret.Secret)
+	if err != nil {
+		return false, err
+	}
+
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	// attach the labels needed for the provisioner
+	for key, val := range rotatedSecret.Type.Labels() {
+		labels[key] = val
+	}
+
+	newId, newSecret, err := r.Provisioners[rotatedSecret.Type.Type()].CreateNew(labels)
+	if err != nil {
+		return false, err
+	}
+
+	// update the secret Manager secret
+	latestVersion, err := r.Client.UpsertSecret(rotatedSecret.Project, rotatedSecret.Secret, newSecret)
+	if err != nil {
+		return false, err
+	}
+
+	// keys in format of "v%d" indicate that they are (version: id) pairs attached by the rotator
+	// the reason for the prefix "v" is that Secret Manager labels need to begin with a lowwer case letter
+	err = r.Client.UpsertSecretLabel(rotatedSecret.Project, rotatedSecret.Secret, "v"+latestVersion, newId)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+
+}
+
+// ShouldRefresh checks whether the secret needs to be refreshed according to 'now' and 'rotatedSecret.Refresh'.
+// Returns true if the secret needs to be refreshed.
+func (r *SecretRotator) ShouldRefresh(rotatedSecret config.RotatedSecretSpec, now time.Time) (bool, error) {
+	err := r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, "1")
+	if err != nil {
+		// create the secret and/or dirst version if it does not already exist
+		if status.Code(err) == codes.NotFound {
+			return true, nil
+		}
+		return false, err
+	}
+
+	createTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, "latest")
 	if err != nil {
 		return false, err
 	}
@@ -72,23 +148,6 @@ func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time
 		// the refresh stratetgy is refreshInterval
 		// check the elapsed time from its createTime to now.
 		if now.After(createTime.Add(rotatedSecret.Refresh.Interval)) {
-			// provision a new secret
-			newId, newSecret, err := r.Provisioners[rotatedSecret.Type.Type()].CreateNew(labels)
-			if err != nil {
-				return false, err
-			}
-
-			// update the secret Manager secret
-			latestVersion, err := r.Client.UpsertSecret(rotatedSecret.Project, rotatedSecret.Secret, newSecret)
-			if err != nil {
-				return false, err
-			}
-
-			err = r.Client.UpsertSecretLabel(rotatedSecret.Project, rotatedSecret.Secret, "v"+latestVersion, newId)
-			if err != nil {
-				return false, err
-			}
-
 			return true, nil
 		}
 	} else {
@@ -99,74 +158,106 @@ func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time
 	return false, nil
 }
 
-// Deactivate checks the old secret versions that are recorded in the secret labels,
-// if any needs to be deactivated according to 'now' and 'rotatedSecret.GracePeriod',
-// Deactivate deactivates that old version and updates the Secret Manager secret.
+// Deactivate fetches the secret versions from the Secret Manager secret labels,
+// if any version needs to be deactivated, deactivates it and updates the Secret Manager secret accordingly.
 func (r *SecretRotator) Deactivate(rotatedSecret config.RotatedSecretSpec, now time.Time) error {
 	labels, err := r.Client.GetSecretLabels(rotatedSecret.Project, rotatedSecret.Secret)
 	if err != nil {
 		return err
 	}
 
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	// attach the labels needed for the provisioner
+	for key, val := range rotatedSecret.Type.Labels() {
+		labels[key] = val
+	}
+
 	for key, _ := range labels {
-		// the key of a label for [version: data] pair should be in the format of "v%d"
+		// keys in format of "v%d" indicate that they are (version: id) pairs attached by the rotator
+		// the reason for the prefix "v" is that Secret Manager labels need to begin with a lowwer case letter
 		matched, err := regexp.Match(`^v[0-9]+$`, []byte(key))
 		if err != nil {
-			return err
+			klog.Errorf("Fail to label %s in %s: %s", key, rotatedSecret, err)
+			continue
 		}
 
 		if !matched {
 			continue
 		}
 
-		// for each version, check the elapsed time from its next version's createTime to now.
-		curVersion := key[1:]
-		v, _ := strconv.Atoi(curVersion)
-		nextVersion := strconv.Itoa(v + 1)
+		version := key[1:]
 
-		// check if curVersion exists
-		err = r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, curVersion)
+		shouldDeactivate, err := r.ShouldDeactivate(rotatedSecret, version, now)
 		if err != nil {
-			return err
+			klog.Errorf("Fail to check for deactivating %s/%s: %s", rotatedSecret, version, err)
 		}
 
-		// check if nextVersion exists
-		err = r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, nextVersion)
-		if err != nil {
-			// if nextVersion does not exist, then curVersion is the latest. Do not return err.
-			if status.Code(err) == codes.NotFound {
-				continue
-			} else {
-				return err
-			}
+		if !shouldDeactivate {
+			continue
 		}
 
-		nextCreateTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, nextVersion)
+		err = r.Provisioners[rotatedSecret.Type.Type()].Deactivate(labels, version)
 		if err != nil {
-			return err
+			klog.Errorf("Fail to deactivate %s/%s: %s", rotatedSecret, version, err)
+			continue
 		}
 
-		if now.After(nextCreateTime.Add(rotatedSecret.GracePeriod)) {
-			// deactivate the old secret
-			err := r.Provisioners[rotatedSecret.Type.Type()].Deactivate(labels, curVersion)
-			if err != nil {
-				return err
-			}
+		// destroy the Secret Manager secret version after the provision deactivates
+		err = r.Client.DestroySecretVersion(rotatedSecret.Project, rotatedSecret.Secret, version)
+		if err != nil {
+			klog.Errorf("Fail to disable %s/%s: %s", rotatedSecret, version, err)
+			continue
+		}
 
-			// TODO: disable or destroy Secret Manager secret version curVersion?
-			// 1: SecretVersion_ENABLED, 2: SecretVersion_DISABLED, 3: SecretVersion_DESTROYED
-			err = r.Client.ChangeSecretVersionState(rotatedSecret.Project, rotatedSecret.Secret, curVersion, 2)
-			if err != nil {
-				return err
-			}
-
-			// update the Secret Manager secret
-			err = r.Client.DeleteSecretLabel(rotatedSecret.Project, rotatedSecret.Secret, "v"+curVersion)
-			if err != nil {
-				return err
-			}
+		// update the Secret Manager secret
+		// keys in format of "v%d" indicate that they are (version: id) pairs attached by the rotator
+		// the reason for the prefix "v" is that Secret Manager labels need to begin with a lowwer case letter
+		err = r.Client.DeleteSecretLabel(rotatedSecret.Project, rotatedSecret.Secret, "v"+version)
+		if err != nil {
+			klog.Errorf("Fail to delete label %s of %s: %s", "v"+version, rotatedSecret, err)
+			continue
 		}
 	}
 
 	return nil
+}
+
+// ShouldDeactivate checks if the secret version needs to be deactivated according to 'now' and 'rotatedSecret.GracePeriod'
+// Returns true if the secret version needs to be deactivated.
+func (r *SecretRotator) ShouldDeactivate(rotatedSecret config.RotatedSecretSpec, version string, now time.Time) (bool, error) {
+
+	// check the elapsed time from its next version's createTime to now.
+	v, _ := strconv.Atoi(version)
+	nextVersion := strconv.Itoa(v + 1)
+
+	// check if version exists
+	err := r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, version)
+	if err != nil {
+		return false, err
+	}
+
+	// check if nextVersion exists
+	err = r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, nextVersion)
+	if err != nil {
+		// if nextVersion does not exist, then version is the latest. Return false to signal no deactivation.
+		if status.Code(err) == codes.NotFound {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+
+	nextCreateTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, nextVersion)
+	if err != nil {
+		return false, err
+	}
+
+	if now.After(nextCreateTime.Add(rotatedSecret.GracePeriod)) {
+		return true, nil
+	}
+
+	return false, nil
 }

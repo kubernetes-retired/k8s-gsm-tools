@@ -22,10 +22,12 @@ import (
 	"time"
 )
 
-// Structs for rotated secret configuration
+// RotatedSecretConfig contains the slice of RotatedSecretSpecs
 type RotatedSecretConfig struct {
 	Specs []RotatedSecretSpec `yaml:"specs"`
 }
+
+// RotatedSecretSpec specifies a single rotated secret
 type RotatedSecretSpec struct {
 	Project     string            `yaml:"project"`
 	Secret      string            `yaml:"secret"`
@@ -33,9 +35,17 @@ type RotatedSecretSpec struct {
 	Refresh     RefreshStrategy   `yaml:"refreshStrategy"`
 	GracePeriod time.Duration     `yaml:"gracePeriod"`
 }
+
+// RotatedSecretType specifies the type of the rotated secret
+// One and only one of its fields can be assigned a value
+// others should be set to nil
 type RotatedSecretType struct {
 	ServiceAccountKey *svckey.ServiceAccountKeySpec `yaml:"serviceAccountKey,omitempty"`
 }
+
+// RefreshStrategy specifies the refeshing strategy for the rotated secret
+// either one of `Interval` or `Cron` can be assigned a value
+// the other should be set to its zero value
 type RefreshStrategy struct {
 	Interval time.Duration `yaml:"interval,omitempty"`
 	Cron     string        `yaml:"cron,omitempty"`
@@ -56,7 +66,17 @@ func (secretType RotatedSecretType) Type() string {
 		return secretType.ServiceAccountKey.Type()
 	} else {
 		// TODO: other types of secrets
-		return ""
+		return "UNKNOWN"
+	}
+}
+
+// RotatedSecretType.Labels() is used to obtain the labels needed for the provisioner
+func (secretType RotatedSecretType) Labels() map[string]string {
+	if secretType.ServiceAccountKey != nil {
+		return secretType.ServiceAccountKey.Labels()
+	} else {
+		// TODO: other types of secrets
+		return nil
 	}
 }
 
@@ -88,6 +108,28 @@ func (config *RotatedSecretConfig) Validate() error {
 	if len(config.Specs) == 0 {
 		return fmt.Errorf("Empty secret sync configuration.")
 	}
+
 	// TODO: validate Project, Secret, Type, Refresh, GracePeriod fields
+	for _, spec := range config.Specs {
+		switch {
+		case spec.Project == "":
+			return fmt.Errorf("Missing <project> field for rotated secret: %s.", spec)
+		case spec.Secret == "":
+			return fmt.Errorf("Missing <secret> field for rotated secret: %s.", spec)
+		}
+
+		// validate there's only one refresh stategy
+		if spec.Refresh.Interval == 0 && spec.Refresh.Cron == "" {
+			return fmt.Errorf("Missing <refresh strategy> for rotated secret: %s.", spec)
+		} else if spec.Refresh.Interval != 0 && spec.Refresh.Cron != "" {
+			return fmt.Errorf("Multiple <refresh strategy> specified for rotated secret: %s.", spec)
+		}
+
+		// validate there's only one secret type
+		// TODO
+		if spec.Type.ServiceAccountKey == nil {
+			return fmt.Errorf("Missing <type> for rotated secret: %s.", spec)
+		}
+	}
 	return nil
 }

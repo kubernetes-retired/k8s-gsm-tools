@@ -22,23 +22,31 @@ import (
 	"google.golang.org/grpc/status"
 	"strconv"
 	"time"
+
+	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
+// MockClient mocks a Secret Manager client
+// MockClient.Secrets is a map from <project>, <secret_id> to a Secret object
 type MockClient struct {
 	Secrets map[string]map[string]*Secret
 	// Note that a new version added through MockClient.UpsertSecret() will just have
 	// a zero value of CreateTime. CreateTime generation is not mocked.
 }
 
+// Secret mocks a Secret Manager secret, which contains metadata and a list of versions
+// Secret.Versions is a map from <version> to a secret Version object
+// Secret.Labels stores the secret metadata
 type Secret struct {
 	Versions map[string]*Version
 	Labels   map[string]string
 }
 
+// Version mocks a Secret Manager secret version, which contains version CreateTime, secret Data and version State
 type Version struct {
 	CreateTime time.Time
 	Data       []byte
-	State      int32
+	State      secretmanagerpb.SecretVersion_State
 }
 
 // ValidateProject returns nil if the project exists, otherwise error.
@@ -98,7 +106,7 @@ func (cl *MockClient) UpsertSecret(project, id string, data []byte) (string, err
 	version := strconv.Itoa(len(cl.Secrets[project][id].Versions) + 1)
 	cl.Secrets[project][id].Versions[version] = &Version{
 		Data:  data,
-		State: 1, // SecretVersion_ENABLED
+		State: secretmanagerpb.SecretVersion_ENABLED,
 	}
 
 	return version, nil
@@ -154,7 +162,7 @@ func (cl *MockClient) GetSecretVersionData(project, id, version string) ([]byte,
 
 // GetSecretVersionState gets the state of the secret version specified by project, id, version.
 // Returns state if successful, otherwise error.
-func (cl *MockClient) GetSecretVersionState(project, id, version string) (int32, error) {
+func (cl *MockClient) GetSecretVersionState(project, id, version string) (secretmanagerpb.SecretVersion_State, error) {
 	err := cl.ValidateSecretVersion(project, id, version)
 	if err != nil {
 		return 0, err
@@ -164,12 +172,12 @@ func (cl *MockClient) GetSecretVersionState(project, id, version string) (int32,
 		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
-	return int32(cl.Secrets[project][id].Versions[version].State), nil
+	return cl.Secrets[project][id].Versions[version].State, nil
 }
 
-// ChangeSecretVersionState changes the state of secret version
+// EnableSecretVersion changes the state of secret version to ENABLED
 // returns nil if successful, otherwise error.
-func (cl *MockClient) ChangeSecretVersionState(project, id, version string, state int32) error {
+func (cl *MockClient) EnableSecretVersion(project, id, version string) error {
 	err := cl.ValidateSecretVersion(project, id, version)
 	if err != nil {
 		return err
@@ -179,7 +187,41 @@ func (cl *MockClient) ChangeSecretVersionState(project, id, version string, stat
 		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
 	}
 
-	cl.Secrets[project][id].Versions[version].State = state
+	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_ENABLED
+
+	return nil
+}
+
+// DisableSecretVersion changes the state of secret version to DISABLED
+// returns nil if successful, otherwise error.
+func (cl *MockClient) DisableSecretVersion(project, id, version string) error {
+	err := cl.ValidateSecretVersion(project, id, version)
+	if err != nil {
+		return err
+	}
+
+	if version == "latest" {
+		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
+	}
+
+	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_DISABLED
+
+	return nil
+}
+
+// DestroySecretVersion changes the state of secret version to DESTROYED
+// returns nil if successful, otherwise error.
+func (cl *MockClient) DestroySecretVersion(project, id, version string) error {
+	err := cl.ValidateSecretVersion(project, id, version)
+	if err != nil {
+		return err
+	}
+
+	if version == "latest" {
+		version = strconv.Itoa(len(cl.Secrets[project][id].Versions))
+	}
+
+	cl.Secrets[project][id].Versions[version].State = secretmanagerpb.SecretVersion_DESTROYED
 
 	return nil
 }
