@@ -36,5 +36,7 @@ substitutions:
 images:
   - 'gcr.io/$PROJECT_ID/demo:$_GIT_TAG'
   - 'gcr.io/$PROJECT_ID/demo:latest'
+  - 'gcr.io/$PROJECT_ID/secret-rotator:$_GIT_TAG'
+  - 'gcr.io/$PROJECT_ID/secret-rotator:latest'
   - 'gcr.io/$PROJECT_ID/secret-sync-controller:$_GIT_TAG'
   - 'gcr.io/$PROJECT_ID/secret-sync-controller:latest'
