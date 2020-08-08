@@ -44,11 +44,10 @@ type RotatedSecretType struct {
 }
 
 // RefreshStrategy specifies the refeshing strategy for the rotated secret
-// either one of `Interval` or `Cron` can be assigned a value
-// the other should be set to its zero value
+// One and only one of its fields can be assigned a value
+// others should be set to nil
 type RefreshStrategy struct {
 	Interval time.Duration `yaml:"interval,omitempty"`
-	Cron     string        `yaml:"cron,omitempty"`
 }
 
 func (config RotatedSecretConfig) String() string {
@@ -109,7 +108,6 @@ func (config *RotatedSecretConfig) Validate() error {
 		return fmt.Errorf("Empty secret sync configuration.")
 	}
 
-	// TODO: validate Project, Secret, Type, Refresh, GracePeriod fields
 	for _, spec := range config.Specs {
 		switch {
 		case spec.Project == "":
@@ -119,14 +117,13 @@ func (config *RotatedSecretConfig) Validate() error {
 		}
 
 		// validate there's only one refresh stategy
-		if spec.Refresh.Interval == 0 && spec.Refresh.Cron == "" {
+		// TODO: modify this after other refresh strategies are supported
+		if spec.Refresh.Interval == 0 {
 			return fmt.Errorf("Missing <refresh strategy> for rotated secret: %s.", spec)
-		} else if spec.Refresh.Interval != 0 && spec.Refresh.Cron != "" {
-			return fmt.Errorf("Multiple <refresh strategy> specified for rotated secret: %s.", spec)
 		}
 
 		// validate there's only one secret type
-		// TODO
+		// TODO: modify this after other types are supported
 		if spec.Type.ServiceAccountKey == nil {
 			return fmt.Errorf("Missing <type> for rotated secret: %s.", spec)
 		}

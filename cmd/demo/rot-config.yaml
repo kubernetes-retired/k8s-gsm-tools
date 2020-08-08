@@ -1,0 +1,10 @@
+specs:
+- project: k8s-jkns-gke-soak
+  secret: secret-1
+  type:
+    serviceAccountKey:
+      project: k8s-jkns-gke-soak
+      serviceAccount: shanefu
+  refreshStrategy:
+    interval: 30s
+  gracePeriod: 5s

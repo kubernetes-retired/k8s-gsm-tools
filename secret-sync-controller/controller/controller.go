@@ -28,6 +28,8 @@ type SecretSyncController struct {
 	ResyncPeriod time.Duration
 }
 
+// Start starts the secret sync controller in continuous mode.
+// stops when stop sinal is received from stopChan.
 func (c *SecretSyncController) Start(stopChan <-chan struct{}) error {
 	runChan := make(chan struct{})
 

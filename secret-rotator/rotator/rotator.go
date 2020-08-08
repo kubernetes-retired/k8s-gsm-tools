@@ -34,6 +34,30 @@ type SecretRotator struct {
 	Client       client.Interface
 	Agent        *config.Agent
 	Provisioners map[string]SecretProvisioner
+	Period       time.Duration
+}
+
+// Start starts the secret rotator in continuous mode.
+// stops when stop sinal is received from stopChan.
+func (r *SecretRotator) Start(stopChan <-chan struct{}) error {
+	runChan := make(chan struct{})
+
+	go func() {
+		for {
+			runChan <- struct{}{}
+			time.Sleep(r.Period)
+		}
+	}()
+
+	for {
+		select {
+		case <-stopChan:
+			klog.V(2).Info("Stop signal received. Quitting...")
+			return nil
+		case <-runChan:
+			r.RunOnce()
+		}
+	}
 }
 
 // RunOnce checks all rotated secrets in Agent.Config().Specs
@@ -132,7 +156,7 @@ func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time
 func (r *SecretRotator) ShouldRefresh(rotatedSecret config.RotatedSecretSpec, now time.Time) (bool, error) {
 	err := r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, "1")
 	if err != nil {
-		// create the secret and/or dirst version if it does not already exist
+		// create the secret and/or the first version if it does not already exist
 		if status.Code(err) == codes.NotFound {
 			return true, nil
 		}
@@ -144,18 +168,8 @@ func (r *SecretRotator) ShouldRefresh(rotatedSecret config.RotatedSecretSpec, no
 		return false, err
 	}
 
-	if rotatedSecret.Refresh.Interval != 0 {
-		// the refresh stratetgy is refreshInterval
-		// check the elapsed time from its createTime to now.
-		if now.After(createTime.Add(rotatedSecret.Refresh.Interval)) {
-			return true, nil
-		}
-	} else {
-		// the refresh strategy is cron
-		// TODO
-	}
-
-	return false, nil
+	// check the elapsed time from its createTime to now.
+	return now.After(createTime.Add(rotatedSecret.Refresh.Interval)), nil
 }
 
 // Deactivate fetches the secret versions from the Secret Manager secret labels,
