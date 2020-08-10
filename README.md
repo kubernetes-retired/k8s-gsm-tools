@@ -93,9 +93,9 @@ kubectl apply -f service-account/role.yaml
 - secret-sync-controller	
 	- create ConfigMap `config` with key `syncConfig`.
 
-	- run controller in continuous mode as a job
+	- deploy controller in continuous mode
 			
-			kubectl apply -f cmd/secret-sync-controller/job.yaml
+			kubectl apply -f cmd/secret-sync-controller/deployment.yaml
 
 	- run testing job
 
@@ -104,9 +104,9 @@ kubectl apply -f service-account/role.yaml
 - secret-rotator	
 	- create ConfigMap `config` with key `rotConfig`.
 
-	- run rotator in continuous mode as a job
+	- deploy rotator in continuous mode
 			
-			kubectl apply -f cmd/secret-rotator/job.yaml
+			kubectl apply -f cmd/secret-rotator/deployment.yaml
 
 - test-svc-consumer	
 	- build image locally and push
@@ -128,15 +128,15 @@ kubectl apply -f service-account/role.yaml
 		gcloud secrets create secret-1
 		kubectl create namespace ns-a 
 
-- run secret-sync-controller
+- deploy secret-sync-controller
 
-		kubectl apply -f cmd/secret-sync-controller/job.yaml
+		kubectl apply -f cmd/secret-sync-controller/deployment.yaml
 
-- run secret-rotator
+- deploy secret-rotator
 
-		kubectl apply -f cmd/secret-rotator/job.yaml
+		kubectl apply -f cmd/secret-rotator/deployment.yaml
 
-- run svc-consumer	
+- deploy svc-consumer	
 
 		kubectl apply -f experiment/cmd/consumer/job.yaml
 
@@ -146,8 +146,8 @@ kubectl apply -f service-account/role.yaml
 
 - cleanup
 
-		kubectl delete -f cmd/secret-sync-controller/job.yaml
-		kubectl delete -f cmd/secret-rotator/job.yaml
+		kubectl delete -f cmd/secret-sync-controller/deployment.yaml
+		kubectl delete -f cmd/secret-rotator/deployment.yaml
 		kubectl delete -f experiment/cmd/consumer/job.yaml
 		gcloud secrets delete secret-1
 		kubectl create namespace ns-a 

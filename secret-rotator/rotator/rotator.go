@@ -14,6 +14,7 @@ limitations under the License.
 package rotator
 
 import (
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	"regexp"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/client"
@@ -67,6 +68,9 @@ func (r *SecretRotator) Start(stopChan <-chan struct{}) error {
 // RotateAll checks all rotated secrets in Agent.Config().Specs
 // Pops error message for any failure in refreshing or deactivating each secret.
 func (r *SecretRotator) RotateAll() {
+	// get all triggered cron instances for secret refreshing
+	triggered := r.Agent.CronQueuedSecrets()
+
 	// iterating on rotatedSecret instead of index so that the config stays consistent within each iteration,
 	// even if a config update occurs in the middle of the loop.
 	for _, rotatedSecret := range r.Agent.Config().Specs {
@@ -80,7 +84,7 @@ func (r *SecretRotator) RotateAll() {
 			klog.Error(err)
 		}
 
-		_, err = r.Refresh(rotatedSecret, time.Now())
+		_, err = r.Refresh(rotatedSecret, triggered, time.Now())
 		if err != nil {
 			klog.Error(err)
 		}
@@ -130,8 +134,8 @@ func (r *SecretRotator) UpsertLabels(rotatedSecret config.RotatedSecretSpec) err
 // Refresh checks if the secret needs to be refreshed, and if so
 // provisions a new secret and updates the Secret Manager secret.
 // Returns true if the secret is refreshed.
-func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time.Time) (bool, error) {
-	shouldRefresh, err := r.ShouldRefresh(rotatedSecret, now)
+func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, triggered sets.String, now time.Time) (bool, error) {
+	shouldRefresh, err := r.ShouldRefresh(rotatedSecret, triggered, now)
 	if err != nil {
 		return false, err
 	}
@@ -176,25 +180,32 @@ func (r *SecretRotator) Refresh(rotatedSecret config.RotatedSecretSpec, now time
 
 }
 
-// ShouldRefresh checks whether the secret needs to be refreshed according to 'now' and 'rotatedSecret.Refresh'.
+// ShouldRefresh checks whether the secret needs to be refreshed according to
+// (1)'now' and 'rotatedSecret.Refresh.Interval' if 'rotatedSecret.Refresh.Interval' is specified.
+// (2)whether the spec is in 'triggered' if 'rotatedSecret.Refresh.Cron' is specified.
 // Returns true if the secret needs to be refreshed.
-func (r *SecretRotator) ShouldRefresh(rotatedSecret config.RotatedSecretSpec, now time.Time) (bool, error) {
-	err := r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, "1")
-	if err != nil {
-		// create the secret and/or the first version if it does not already exist
-		if status.Code(err) == codes.NotFound {
-			return true, nil
+func (r *SecretRotator) ShouldRefresh(rotatedSecret config.RotatedSecretSpec, triggered sets.String, now time.Time) (bool, error) {
+	if rotatedSecret.Refresh.Cron != "" {
+		// check if the cron instance for refreshing this secret is triggered
+		return triggered.Has(rotatedSecret.String()), nil
+	} else {
+		err := r.Client.ValidateSecretVersion(rotatedSecret.Project, rotatedSecret.Secret, "1")
+		if err != nil {
+			// create the secret and/or the first version if it does not already exist
+			if status.Code(err) == codes.NotFound {
+				return true, nil
+			}
+			return false, err
 		}
-		return false, err
-	}
 
-	createTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, "latest")
-	if err != nil {
-		return false, err
-	}
+		createTime, err := r.Client.GetCreateTime(rotatedSecret.Project, rotatedSecret.Secret, "latest")
+		if err != nil {
+			return false, err
+		}
 
-	// check the elapsed time from its createTime to now.
-	return now.After(createTime.Add(rotatedSecret.Refresh.Interval)), nil
+		// check the elapsed time from its createTime to now
+		return now.After(createTime.Add(rotatedSecret.Refresh.Interval)), nil
+	}
 }
 
 // Deactivate fetches the secret versions from the Secret Manager secret labels,

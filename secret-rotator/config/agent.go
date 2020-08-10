@@ -19,6 +19,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	prow "k8s.io/test-infra/prow/config"
 	"path/filepath"
@@ -28,12 +29,22 @@ import (
 type Agent struct {
 	mutex  sync.RWMutex
 	config *RotatedSecretConfig
+	cron   *Cron
+}
+
+func NewAgent() *Agent {
+	agent := &Agent{
+		config: &RotatedSecretConfig{},
+		cron:   NewCron(),
+	}
+	agent.cron.Start()
+	return agent
 }
 
 // WatchConfig will begin watching the config file at the provided configPath.
 // If the first load or valiadate fails, WatchConfig will return the error and abort.
 // Future load or valiadate failures will be logged but continue to attempt loading config.
-func (ca *Agent) WatchConfig(configPath string) (func(ctx context.Context), error) {
+func (a *Agent) WatchConfig(configPath string) (func(ctx context.Context), error) {
 	updateFunc := func() error {
 		newConfig := &RotatedSecretConfig{}
 		err := newConfig.LoadFrom(configPath)
@@ -46,8 +57,9 @@ func (ca *Agent) WatchConfig(configPath string) (func(ctx context.Context), erro
 			return fmt.Errorf("Fail to validate config: %s", err)
 		}
 
-		ca.Set(newConfig)
-		return nil
+		a.Set(newConfig)
+		err = a.cron.SyncConfig(a.Config())
+		return err
 	}
 
 	errFunc := func(err error, msg string) {
@@ -64,15 +76,21 @@ func (ca *Agent) WatchConfig(configPath string) (func(ctx context.Context), erro
 	return runFunc, err
 }
 
-func (ca *Agent) Config() *RotatedSecretConfig {
-	ca.mutex.RLock()
-	defer ca.mutex.RUnlock()
-	return ca.config
+func (a *Agent) Config() *RotatedSecretConfig {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	return a.config
 }
 
-func (ca *Agent) Set(newConfig *RotatedSecretConfig) {
-	ca.mutex.Lock()
-	defer ca.mutex.Unlock()
+func (a *Agent) CronQueuedSecrets() sets.String {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	return a.cron.QueuedSecrets()
+}
 
-	ca.config = newConfig
+func (a *Agent) Set(newConfig *RotatedSecretConfig) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	a.config = newConfig
 }

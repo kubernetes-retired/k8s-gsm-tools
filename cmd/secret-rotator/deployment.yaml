@@ -1,15 +1,24 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
+  namespace: default
   name: secret-rotator
+  labels:
+    app: secret-rotator
 spec:
+  replicas: 1 # Do not scale up.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: secret-rotator
   template:
+    metadata:
+      labels:
+        app: secret-rotator
     spec:
       serviceAccountName: secret-sync-controller
-      volumes:
-      - name: config-volume
-        configMap:
-          name: config
+      terminationGracePeriodSeconds: 30
       containers:
       - name: rot-container
         image: gcr.io/k8s-staging-k8s-gsm-tools/secret-rotator:latest
@@ -21,4 +30,7 @@ spec:
         - name: config-volume
           readOnly: true
           mountPath: /tmp/config
-      restartPolicy: Never
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config

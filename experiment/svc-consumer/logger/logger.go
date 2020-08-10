@@ -73,4 +73,5 @@ func (l *Logger) RunOnce() {
 			klog.Infof("[valid] %s", keyPath)
 		}
 	}
+	klog.Infof("============================")
 }
