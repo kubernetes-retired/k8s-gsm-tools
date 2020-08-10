@@ -23,8 +23,6 @@ spec:
         - name: secret-volume
           readOnly: true
           mountPath: "/etc/secret-volume"
-        command: 
-        - /app
         args:
         - --mount-path=$(GOOGLE_APPLICATION_CREDENTIALS)
         - --period=3000

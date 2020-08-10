@@ -13,8 +13,6 @@ spec:
       containers:
       - name: sync-container
         image: gcr.io/k8s-staging-k8s-gsm-tools/secret-sync-controller:latest
-        command: 
-        - /app
         args:
         - --config-path=/tmp/config/syncConfig 
         - --period=1000

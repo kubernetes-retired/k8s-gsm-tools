@@ -35,6 +35,7 @@ type SecretRotator struct {
 	Agent        *config.Agent
 	Provisioners map[string]SecretProvisioner
 	Period       time.Duration
+	RunOnce      bool
 }
 
 // Start starts the secret rotator in continuous mode.
@@ -55,14 +56,17 @@ func (r *SecretRotator) Start(stopChan <-chan struct{}) error {
 			klog.V(2).Info("Stop signal received. Quitting...")
 			return nil
 		case <-runChan:
-			r.RunOnce()
+			r.RotateAll()
+			if r.RunOnce {
+				return nil
+			}
 		}
 	}
 }
 
-// RunOnce checks all rotated secrets in Agent.Config().Specs
+// RotateAll checks all rotated secrets in Agent.Config().Specs
 // Pops error message for any failure in refreshing or deactivating each secret.
-func (r *SecretRotator) RunOnce() {
+func (r *SecretRotator) RotateAll() {
 	// iterating on rotatedSecret instead of index so that the config stays consistent within each iteration,
 	// even if a config update occurs in the middle of the loop.
 	for _, rotatedSecret := range r.Agent.Config().Specs {
