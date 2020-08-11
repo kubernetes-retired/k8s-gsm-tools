@@ -26,8 +26,10 @@ import (
 )
 
 type options struct {
-	configPath string
-	period     int64
+	configPath     string
+	period         int64
+	enableDeletion bool
+	runOnce        bool
 }
 
 func (o *options) Validate() error {
@@ -41,6 +43,8 @@ func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
 	flag.Int64Var(&o.period, "period", 1000, "Period in milliseconds.")
+	flag.BoolVar(&o.enableDeletion, "enable-deletion", false, "Enable deleting old secrets when deactivation triggered.")
+	flag.BoolVar(&o.runOnce, "run-once", false, "Rotate once instead of continuous loop.")
 	flag.Parse()
 	return o
 }
@@ -74,7 +78,8 @@ func main() {
 	// prepare provisioners for all supported types of secrets
 	provisioners := map[string]rotator.SecretProvisioner{}
 
-	newSvcProvisioner, err := svckey.NewProvisioner()
+	// temporarily disabling service account key deletion, for safety reasons.
+	newSvcProvisioner, err := svckey.NewProvisioner(o.enableDeletion)
 	if err != nil {
 		klog.Errorf("Fail to create service account key provisoner: %s", err)
 	}
@@ -86,6 +91,7 @@ func main() {
 		Agent:        configAgent,
 		Provisioners: provisioners,
 		Period:       time.Duration(o.period) * time.Millisecond,
+		RunOnce:      o.runOnce,
 	}
 
 	stopChan := make(chan struct{})

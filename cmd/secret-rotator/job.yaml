@@ -13,8 +13,6 @@ spec:
       containers:
       - name: rot-container
         image: gcr.io/k8s-jkns-gke-soak/secret-rotator:latest
-        command: 
-        - /app
         args:
         - --config-path=/tmp/config/rotConfig 
         - --period=1000

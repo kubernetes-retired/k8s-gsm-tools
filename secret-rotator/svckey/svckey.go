@@ -46,11 +46,19 @@ func (svc ServiceAccountKeySpec) Labels() map[string]string {
 	}
 }
 
+// Provisioner is a GCP service account key provisioner.
+// It creates new svc-keys and deletes old svc-keys if enabled.
 type Provisioner struct {
-	Service *iam.Service
+	// if enableDeletion is set to true, the provisioner deletes the old svc key of 'version'
+	// when Deactivate('labels', 'version') is called.
+	enableDeletion bool
+	Service        *iam.Service
 }
 
-func NewProvisioner() (*Provisioner, error) {
+// NewProvisioner creates a new svc-key provisioner with a new iam service.
+// The argument 'enableDeletion' specifies if deletion of old svc-keys is enabled.
+// It returns a pointer to the new provisioner and any error if encountered.
+func NewProvisioner(enableDeletion bool) (*Provisioner, error) {
 	ctx := context.Background()
 
 	service, err := iam.NewService(ctx)
@@ -58,10 +66,11 @@ func NewProvisioner() (*Provisioner, error) {
 		return nil, err
 	}
 
-	return &Provisioner{service}, nil
+	return &Provisioner{
+		Service:        service,
+		enableDeletion: enableDeletion,
+	}, nil
 }
-
-// TODO: add project and service-account fields to metadata when registered
 
 // CreateNew provisions a new service account key,
 // returns the key-id and private-key data of the created key if successful,
@@ -92,12 +101,16 @@ func (p *Provisioner) Deactivate(labels map[string]string, version string) error
 	// the reason for the prefix "v" is that Secret Manager labels need to begin with a lowwer case letter
 	name := fmt.Sprintf("projects/%s/serviceAccounts/%s@%s.iam.gserviceaccount.com/keys/%s", labels["project"], labels["service-account"], labels["project"], labels["v"+version])
 
-	_, err := p.Service.Projects.ServiceAccounts.Keys.Delete(name).Do()
-	if err != nil {
-		return fmt.Errorf("Projects.ServiceAccounts.Keys.Delete: %v", err)
-	}
+	if p.enableDeletion {
+		_, err := p.Service.Projects.ServiceAccounts.Keys.Delete(name).Do()
+		if err != nil {
+			return fmt.Errorf("Projects.ServiceAccounts.Keys.Delete: %v", err)
+		}
 
-	klog.V(2).Infof("Deactivated ver. %s: %s ", version, name)
+		klog.V(2).Infof("Deactivated ver. %s: %s ", version, name)
+	} else {
+		klog.V(2).Infof("Did not deactivate ver. %s: %s, because flag --enable-deletion is not set", version, name)
+	}
 
 	return nil
 }
