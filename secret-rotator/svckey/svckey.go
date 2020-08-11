@@ -109,7 +109,7 @@ func (p *Provisioner) Deactivate(labels map[string]string, version string) error
 
 		klog.V(2).Infof("Deactivated ver. %s: %s ", version, name)
 	} else {
-		klog.V(2).Infof("Should deactivate ver. %s: %s ", version, name)
+		klog.V(2).Infof("Did not deactivate ver. %s: %s, because flag --enable-deletion is not set", version, name)
 	}
 
 	return nil
