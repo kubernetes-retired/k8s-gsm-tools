@@ -43,7 +43,7 @@ func gatherOptions() options {
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
 	flag.StringVar(&o.kubeconfig, "kubeconfig", "", "Path to kubeconfig file.")
 	flag.BoolVar(&o.runOnce, "run-once", false, "Sync once instead of continuous loop.")
-	flag.Int64Var(&o.resyncPeriod, "period", 1000, "Resync period in milliseconds.")
+	flag.Int64Var(&o.resyncPeriod, "period", 60, "Resync period in seconds.")
 	flag.Parse()
 	return o
 }
@@ -86,7 +86,7 @@ func main() {
 		Client:       clientInterface,
 		Agent:        configAgent,
 		RunOnce:      o.runOnce,
-		ResyncPeriod: time.Duration(o.resyncPeriod) * time.Millisecond,
+		ResyncPeriod: time.Duration(o.resyncPeriod) * time.Second,
 	}
 
 	stopChan := make(chan struct{})

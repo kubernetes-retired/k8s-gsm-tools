@@ -42,7 +42,7 @@ func (o *options) Validate() error {
 func gatherOptions() options {
 	o := options{}
 	flag.StringVar(&o.configPath, "config-path", "", "Path to config.yaml.")
-	flag.Int64Var(&o.period, "period", 1000, "Period in milliseconds.")
+	flag.Int64Var(&o.period, "period", 60, "Period in seconds.")
 	flag.BoolVar(&o.enableDeletion, "enable-deletion", false, "Enable deleting old secrets when deactivation triggered.")
 	flag.BoolVar(&o.runOnce, "run-once", false, "Rotate once instead of continuous loop.")
 	flag.Parse()
@@ -90,7 +90,7 @@ func main() {
 		Client:       secretManagerClient,
 		Agent:        configAgent,
 		Provisioners: provisioners,
-		Period:       time.Duration(o.period) * time.Millisecond,
+		Period:       time.Duration(o.period) * time.Second,
 		RunOnce:      o.runOnce,
 	}
 

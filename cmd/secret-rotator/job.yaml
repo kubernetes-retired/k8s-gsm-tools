@@ -12,10 +12,10 @@ spec:
           name: config
       containers:
       - name: rot-container
-        image: gcr.io/k8s-jkns-gke-soak/secret-rotator:latest
+        image: gcr.io/k8s-staging-k8s-gsm-tools/secret-rotator:latest
         args:
         - --config-path=/tmp/config/rotConfig 
-        - --period=1000
+        - --period=60
         - --v=2
         volumeMounts:
         - name: config-volume

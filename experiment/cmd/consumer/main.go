@@ -42,7 +42,7 @@ func gatherOptions() options {
 	flag.StringVar(&o.mountPath, "mount-path", "", "Path to mounted svc key.")
 	flag.StringVar(&o.outputPath, "output-path", "consumer_keys", "Output path for svc keys.")
 	flag.StringVar(&o.gsmProject, "gsm-project", "", "Secret Manager project.")
-	flag.Int64Var(&o.period, "period", 1000, "Period in milliseconds.")
+	flag.Int64Var(&o.period, "period", 3, "Period in seconds.")
 	flag.Parse()
 	return o
 }
@@ -71,7 +71,7 @@ func main() {
 
 	logger := logger.Logger{
 		Agent:   keysAgent,
-		Period:  time.Duration(o.period) * time.Millisecond,
+		Period:  time.Duration(o.period) * time.Second,
 		Project: o.gsmProject,
 	}
 

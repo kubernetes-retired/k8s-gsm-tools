@@ -70,7 +70,12 @@ func (r *SecretRotator) RotateAll() {
 	// iterating on rotatedSecret instead of index so that the config stays consistent within each iteration,
 	// even if a config update occurs in the middle of the loop.
 	for _, rotatedSecret := range r.Agent.Config().Specs {
-		err := r.UpsertLabels(rotatedSecret)
+		err := r.BootstrapSecret(rotatedSecret)
+		if err != nil {
+			klog.Error(err)
+		}
+
+		err = r.UpsertLabels(rotatedSecret)
 		if err != nil {
 			klog.Error(err)
 		}
@@ -85,6 +90,22 @@ func (r *SecretRotator) RotateAll() {
 			klog.Error(err)
 		}
 	}
+}
+
+// BootstrapSecret creates an empty secret specified by rotatedSecret, if it does not exist.
+// It returns error if fails.
+func (r *SecretRotator) BootstrapSecret(rotatedSecret config.RotatedSecretSpec) error {
+	err := r.Client.ValidateSecret(rotatedSecret.Project, rotatedSecret.Secret)
+	if err == nil {
+		return nil
+	}
+
+	// create the secret it does not already exist
+	if status.Code(err) == codes.NotFound {
+		err = r.Client.CreateSecret(rotatedSecret.Project, rotatedSecret.Secret)
+	}
+
+	return err
 }
 
 // UpsertLabels updates or inserts labels needed by the provisioner specified by rotatedSecret
