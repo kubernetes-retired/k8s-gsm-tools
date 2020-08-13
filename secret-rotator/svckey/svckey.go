@@ -33,17 +33,29 @@ func (svc ServiceAccountKeySpec) String() string {
 	return fmt.Sprintf("projects/%s/serviceAccounts/%s", svc.Project, svc.ServiceAccount)
 }
 
-// ServiceAccountKeySpec.Type() is used to obtain the provisioner of the ServiceAccountKey
+// Type is used to obtain the provisioner of the ServiceAccountKey
 func (svc ServiceAccountKeySpec) Type() string {
 	return "serviceAccountKey"
 }
 
-// ServiceAccountKeySpec.Labels() is used to obtain the labels needed for the provisioner of the ServiceAccountKey
+// Labels is used to obtain the labels needed for the provisioner of the ServiceAccountKey
 func (svc ServiceAccountKeySpec) Labels() map[string]string {
 	return map[string]string{
 		"project":         svc.Project,
 		"service-account": svc.ServiceAccount,
 	}
+}
+
+// Validate return error if 'project' and/or 'service-account' fields are missing
+func (svc *ServiceAccountKeySpec) Validate() error {
+	switch {
+	case svc.Project == "":
+		return fmt.Errorf("Missing <project> field")
+	case svc.ServiceAccount == "":
+		return fmt.Errorf("Missing <service-account> field")
+	}
+
+	return nil
 }
 
 // Provisioner is a GCP service account key provisioner.

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	"sigs.k8s.io/k8s-gsm-tools/secret-rotator/svckey"
 	"time"
@@ -48,6 +49,7 @@ type RotatedSecretType struct {
 // others should be set to nil
 type RefreshStrategy struct {
 	Interval time.Duration `yaml:"interval,omitempty"`
+	Cron     string        `yaml:"cron,omitempty"`
 }
 
 func (config RotatedSecretConfig) String() string {
@@ -108,6 +110,8 @@ func (config *RotatedSecretConfig) Validate() error {
 		return fmt.Errorf("Empty secret sync configuration.")
 	}
 
+	existingSecrets := sets.NewString()
+
 	for _, spec := range config.Specs {
 		switch {
 		case spec.Project == "":
@@ -117,16 +121,28 @@ func (config *RotatedSecretConfig) Validate() error {
 		}
 
 		// validate there's only one refresh stategy
-		// TODO: modify this after other refresh strategies are supported
-		if spec.Refresh.Interval == 0 {
+		if spec.Refresh.Interval == 0 && spec.Refresh.Cron == "" {
 			return fmt.Errorf("Missing <refresh strategy> for rotated secret: %s.", spec)
+		} else if spec.Refresh.Interval != 0 && spec.Refresh.Cron != "" {
+			return fmt.Errorf("Multiple <refresh strategy> specified for rotated secret: %s.", spec)
 		}
 
 		// validate there's only one secret type
 		// TODO: modify this after other types are supported
 		if spec.Type.ServiceAccountKey == nil {
 			return fmt.Errorf("Missing <type> for rotated secret: %s.", spec)
+		} else {
+			err := spec.Type.ServiceAccountKey.Validate()
+			if err != nil {
+				return fmt.Errorf("Invalid <serviceAccountKey> for rotated secret: %s: %s", spec, err)
+			}
 		}
+
+		if existingSecrets.Has(spec.String()) {
+			return fmt.Errorf("Duplicated specification for rotated secret: %s.", spec)
+		}
+
+		existingSecrets.Insert(spec.String())
 	}
 	return nil
 }

@@ -100,6 +100,19 @@ func (cl *MockClient) ValidateAndConvertVersion(project, id, version string) (st
 	return version, err
 }
 
+// CreateSecret creates an empty secret specified by project, id.
+// It returns nil if successful, otherwise error.
+func (cl *MockClient) CreateSecret(project, id string) error {
+	err := cl.ValidateProject(project)
+	if err != nil {
+		return err
+	}
+
+	cl.Secrets[project][id] = new(Secret)
+
+	return nil
+}
+
 // UpsertSecret adds a new version to the secret specified by project, id.
 // It inserts a new secret if id doesn't already exist.
 // If successful the latest version will have 'data' as its secret value,

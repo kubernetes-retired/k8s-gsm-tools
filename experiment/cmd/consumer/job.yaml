@@ -25,6 +25,6 @@ spec:
           mountPath: "/etc/secret-volume"
         args:
         - --mount-path=$(GOOGLE_APPLICATION_CREDENTIALS)
-        - --period=3000
+        - --period=3
         - --gsm-project=k8s-jkns-gke-soak
       restartPolicy: Never

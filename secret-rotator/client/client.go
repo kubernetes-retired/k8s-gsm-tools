@@ -43,6 +43,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 type Interface interface {
 	ValidateSecret(project, id string) error
 	ValidateSecretVersion(project, id, version string) error
+	CreateSecret(project, id string) error
 	UpsertSecret(project, id string, data []byte) (string, error)
 	GetCreateTime(project, id, version string) (time.Time, error)
 	GetSecretLabels(project, id string) (map[string]string, error)
@@ -81,6 +82,28 @@ func (cl *Client) ValidateSecretVersion(project, id, version string) error {
 	return err
 }
 
+// CreateSecret creates an empty secret specified by project, id.
+// It returns nil if successful, otherwise error.
+func (cl *Client) CreateSecret(project, id string) error {
+	parent := "projects/" + project
+
+	// Create secret
+	req := &secretmanagerpb.CreateSecretRequest{
+		Parent:   parent,
+		SecretId: id,
+		Secret: &secretmanagerpb.Secret{
+			Replication: &secretmanagerpb.Replication{
+				Replication: &secretmanagerpb.Replication_Automatic_{
+					Automatic: &secretmanagerpb.Replication_Automatic{},
+				},
+			},
+		},
+	}
+	_, err := cl.Client.CreateSecret(context.TODO(), req)
+
+	return err
+}
+
 // UpsertSecret adds a new version to the secret specified by project, id.
 // It inserts a new secret if id doesn't already exist.
 // If successful the latest version will have 'data' as its secret value,
@@ -92,18 +115,7 @@ func (cl *Client) UpsertSecret(project, id string, data []byte) (string, error) 
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			// Create secret
-			req := &secretmanagerpb.CreateSecretRequest{
-				Parent:   parent,
-				SecretId: id,
-				Secret: &secretmanagerpb.Secret{
-					Replication: &secretmanagerpb.Replication{
-						Replication: &secretmanagerpb.Replication_Automatic_{
-							Automatic: &secretmanagerpb.Replication_Automatic{},
-						},
-					},
-				},
-			}
-			_, err := cl.CreateSecret(context.TODO(), req)
+			err := cl.CreateSecret(project, id)
 			if err != nil {
 				return "", err
 			}
