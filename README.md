@@ -12,7 +12,15 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 
 - [Create service account for app](https://cloud.google.com/docs/authentication/production#command-line)
 
+- Enable Identity and Access Management (IAM) API for project.
+
+		gcloud services enable iam.googleapis.com --project=<gcloud-project-id>
+
 - Grant required permissions to the service account `gsa-name`.
+	
+	- Permission to manage service account keys:
+
+		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/iam.serviceAccountKeyAdmin"
 
 	- Permission to get clusters:
 
