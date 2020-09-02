@@ -12,11 +12,13 @@ replace (
 require (
 	cloud.google.com/go v0.60.0
 	github.com/golang/protobuf v1.4.2
+	github.com/sirupsen/logrus v1.6.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	gonum.org/v1/plot v0.7.0
 	google.golang.org/api v0.28.0
 	google.golang.org/genproto v0.0.0-20200709005830-7a2ca40e9dc3
 	google.golang.org/grpc v1.30.0
+	gopkg.in/robfig/cron.v2 v2.0.0-20150107220207-be2e0b0deed5
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.17.3
 	k8s.io/apimachinery v0.18.2

@@ -244,7 +244,7 @@ func TestRefresh(t *testing.T) {
 			seed := time.Now().UnixNano()
 			rand.Seed(seed)
 
-			refreshed, err := rotator.Refresh(tc.spec, tc.now)
+			refreshed, err := rotator.Refresh(tc.spec, nil, tc.now)
 			if tc.refresh && !refreshed {
 				t.Errorf("Expected %s to be refreshed.", tc.spec)
 			} else if !tc.refresh && refreshed {

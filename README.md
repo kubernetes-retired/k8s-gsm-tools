@@ -12,7 +12,15 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 
 - [Create service account for app](https://cloud.google.com/docs/authentication/production#command-line)
 
+- Enable Identity and Access Management (IAM) API for project.
+
+		gcloud services enable iam.googleapis.com --project=<gcloud-project-id>
+
 - Grant required permissions to the service account `gsa-name`.
+	
+	- Permission to manage service account keys:
+
+		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/iam.serviceAccountKeyAdmin"
 
 	- Permission to get clusters:
 
@@ -93,9 +101,9 @@ kubectl apply -f service-account/role.yaml
 - secret-sync-controller	
 	- create ConfigMap `config` with key `syncConfig`.
 
-	- run controller in continuous mode as a job
+	- deploy controller in continuous mode
 			
-			kubectl apply -f cmd/secret-sync-controller/job.yaml
+			kubectl apply -f cmd/secret-sync-controller/deployment.yaml
 
 	- run testing job
 
@@ -104,9 +112,9 @@ kubectl apply -f service-account/role.yaml
 - secret-rotator	
 	- create ConfigMap `config` with key `rotConfig`.
 
-	- run rotator in continuous mode as a job
+	- deploy rotator in continuous mode
 			
-			kubectl apply -f cmd/secret-rotator/job.yaml
+			kubectl apply -f cmd/secret-rotator/deployment.yaml
 
 - test-svc-consumer	
 	- build image locally and push
@@ -128,15 +136,15 @@ kubectl apply -f service-account/role.yaml
 		gcloud secrets create secret-1
 		kubectl create namespace ns-a 
 
-- run secret-sync-controller
+- deploy secret-sync-controller
 
-		kubectl apply -f cmd/secret-sync-controller/job.yaml
+		kubectl apply -f cmd/secret-sync-controller/deployment.yaml
 
-- run secret-rotator
+- deploy secret-rotator
 
-		kubectl apply -f cmd/secret-rotator/job.yaml
+		kubectl apply -f cmd/secret-rotator/deployment.yaml
 
-- run svc-consumer	
+- deploy svc-consumer	
 
 		kubectl apply -f experiment/cmd/consumer/job.yaml
 
@@ -146,8 +154,8 @@ kubectl apply -f service-account/role.yaml
 
 - cleanup
 
-		kubectl delete -f cmd/secret-sync-controller/job.yaml
-		kubectl delete -f cmd/secret-rotator/job.yaml
+		kubectl delete -f cmd/secret-sync-controller/deployment.yaml
+		kubectl delete -f cmd/secret-rotator/deployment.yaml
 		kubectl delete -f experiment/cmd/consumer/job.yaml
 		gcloud secrets delete secret-1
 		kubectl create namespace ns-a 

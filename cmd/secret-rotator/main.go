@@ -65,7 +65,7 @@ func main() {
 	}
 
 	// prepare config agent
-	configAgent := &config.Agent{}
+	configAgent := config.NewAgent()
 	runFunc, err := configAgent.WatchConfig(o.configPath)
 	if err != nil {
 		klog.Fatal(err)
