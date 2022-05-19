@@ -1,6 +1,6 @@
 # k8s-gsm-tools
 
-Secret rotation and synchronization integrating Google Cloud Secret Manager and Kubernetes.
+Secret rotation and synchronization integrating Google Secret Manager and Kubernetes.
 
 ## Current Functions
 Parse configuration file into source and destination secrets.
@@ -17,7 +17,7 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 		gcloud services enable iam.googleapis.com --project=<gcloud-project-id>
 
 - Grant required permissions to the service account `gsa-name`.
-	
+
 	- Permission to manage service account keys:
 
 		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/iam.serviceAccountKeyAdmin"
@@ -25,7 +25,7 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 	- Permission to get clusters:
 
 		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/container.clusterViewer"
-	
+
 	- Permission to manage secrets:
 
 		    gcloud projects add-iam-policy-binding <gcloud-project-id> --member "serviceAccount:<gsa-name>@<gcloud-project-id>.iam.gserviceaccount.com" --role "roles/secretmanager.admin"
@@ -44,7 +44,7 @@ Fetch the latest versions of from Secret Manager secret and Kubernetes secrets.
 				    - container.secrets.get
 				    - container.secrets.delete
 				    - container.secrets.update
-			
+
 			- Create a custom iam role
 
 				    gcloud iam roles create <iam-role-id> --project=<gcloud-project-id> --file=service-secret-role.yaml
@@ -98,25 +98,25 @@ kubectl apply -f service-account/role.yaml
 ```
 
 ## Usage
-- secret-sync-controller	
+- secret-sync-controller
 	- create ConfigMap `config` with key `syncConfig`.
 
 	- deploy controller in continuous mode
-			
+
 			kubectl apply -f cmd/secret-sync-controller/deployment.yaml
 
 	- run testing job
 
 			kubectl apply -f cmd/secret-sync-controller/test-job.yaml
-	
-- secret-rotator	
+
+- secret-rotator
 	- create ConfigMap `config` with key `rotConfig`.
 
 	- deploy rotator in continuous mode
-			
+
 			kubectl apply -f cmd/secret-rotator/deployment.yaml
 
-- test-svc-consumer	
+- test-svc-consumer
 	- build image locally and push
 
 			docker build --pull \
@@ -126,7 +126,7 @@ kubectl apply -f service-account/role.yaml
 			docker push gcr.io/<gcloud-project-id>/consumer
 
 	- run consumer as a job
-			
+
 			kubectl apply -f experiment/cmd/consumer/job.yaml
 
 
@@ -134,7 +134,7 @@ kubectl apply -f service-account/role.yaml
 - create Secret Manager secret and Kubernetes namespace
 
 		gcloud secrets create secret-1
-		kubectl create namespace ns-a 
+		kubectl create namespace ns-a
 
 - deploy secret-sync-controller
 
@@ -144,12 +144,12 @@ kubectl apply -f service-account/role.yaml
 
 		kubectl apply -f cmd/secret-rotator/deployment.yaml
 
-- deploy svc-consumer	
+- deploy svc-consumer
 
 		kubectl apply -f experiment/cmd/consumer/job.yaml
 
 - get logs
-		
+
 		kubectl logs -n ns-a <svc-consumer-pod>
 
 - cleanup
@@ -158,8 +158,8 @@ kubectl apply -f service-account/role.yaml
 		kubectl delete -f cmd/secret-rotator/deployment.yaml
 		kubectl delete -f experiment/cmd/consumer/job.yaml
 		gcloud secrets delete secret-1
-		kubectl create namespace ns-a 
-		
+		kubectl create namespace ns-a
+
 
 ## Building / pushing images
 

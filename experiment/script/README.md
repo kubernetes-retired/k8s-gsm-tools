@@ -1,5 +1,5 @@
 # secret-script
-Proof-of-concept python script for sychronization between kubernetes secret and gcloud secret manager.
+Proof-of-concept python script for sychronization between kubernetes secret and google secret manager.
 
 ## Prerequisites
 - Create a gke cluster.
